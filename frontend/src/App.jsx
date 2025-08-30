@@ -8,7 +8,7 @@ function App() {
 
   return (
     <>
-      <div>
+      <div className=' text-3xl font-bold underline bg-[#f0f0f0]'>
          hello world
         
       </div>
