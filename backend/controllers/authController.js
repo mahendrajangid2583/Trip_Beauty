@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import User from "../models/User.js";
 import generateToken from "../utils/generateTokens.js";
-
+import setAuthCookie from "../utils/setAuthCookes.js";
 
 export const registerUser=async(req,res)=>{
     try{
@@ -33,11 +33,13 @@ export const registerUser=async(req,res)=>{
             email,
             password:hashed,
             profilePic,
+            proAccount
         })
         const token=generateToken(user);
+        setAuthCookie(res, token);
         res.status(201).json({
             token,
-            user:{id:user._id,name:user.name,email:user.email,handle:user.handle,gender:user.gender,profilePic:user.profilePic},
+            user:{id:user._id,name:user.name,email:user.email,handle:user.handle,gender:user.gender,profilePic:user.profilePic,proAccount:user.proAccount},
         });
     }catch(err){
         console.error(err);

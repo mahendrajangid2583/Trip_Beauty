@@ -5,9 +5,7 @@ import dotenv from "dotenv";
 import connectDB from "./config/database.js";
 import errorHandler from "./middlewares/errorHandler.js";
 import authRoutes from "./routes/auth.js";
-import itineraryRoutes from "./routes/itinerary.js";
-import placesRoutes from "./routes/places.js";
-import paymentRoutes from "./routes/payment.js";
+
 dotenv.config();
 connectDB();
 const app = express();
