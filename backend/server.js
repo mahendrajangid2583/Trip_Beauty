@@ -1,14 +1,20 @@
 import express from "express";
-import mongoose from "mongoose";
+//import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
-
+import connectDB from "./config/database.js";
+import errorHandler from "./middlewares/errorHandler.js";
+import authRoutes from "./routes/auth.js";
+import itineraryRoutes from "./routes/itinerary.js";
+import placesRoutes from "./routes/places.js";
+import paymentRoutes from "./routes/payment.js";
 dotenv.config();
-
+connectDB();
 const app = express();
 
 // Middlewares
-app.use(express.json());
+app.use(express.json({limit:"5mb"}));
+app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
 // Sample Route
@@ -16,15 +22,8 @@ app.get("/", (req, res) => {
   res.send("Backend is running 🚀");
 });
 
-// MongoDB Connection
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => {
-  console.log("✅ Connected to MongoDB");
-  app.listen(process.env.PORT || 5000, () => {
-    console.log(`🚀 Server running on port ${process.env.PORT || 5000}`);
-  });
-})
-.catch(err => console.log("❌ DB Connection Error: ", err));
+app.use("/api/auth",authRoutes);
+
+app.use(errorHandler);
+const PORT=process.env.PORT||5000;
+app.listen(PORT,()=>console.log(`Server running on port ${PORT}`));
