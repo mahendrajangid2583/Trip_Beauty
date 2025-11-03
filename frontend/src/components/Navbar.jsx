@@ -33,19 +33,26 @@ export default function Navbar() {
           {/* Desktop Navigation Links */}
           <div className="hidden md:flex items-center space-x-8">
             <Link
-              to={"/"}
+              to={"/create"}
               className="flex items-center space-x-2 text-gray-700 hover:text-blue-600 transition-colors duration-200"
             >
               <Calendar className="h-4 w-4" />
-              <span className="font-medium">Plan Trip</span>
+              <span className="font-medium">Create Trip</span>
             </Link>
 
             <Link
-              to={"/guides"}
+              to={"/discover"}
               className="flex items-center space-x-2 text-gray-700 hover:text-blue-600 transition-colors duration-200"
             >
               <BookOpen className="h-4 w-4" />
-              <span className="font-medium">Guides</span>
+              <span className="font-medium">Discover</span>
+            </Link>
+
+            <Link
+              to={"/upgrade"}
+              className="flex items-center space-x-2 text-gray-700 hover:text-blue-600 transition-colors duration-200"
+            >
+              <span className="font-medium">Upgrade</span>
             </Link>
           </div>
 
@@ -91,38 +98,38 @@ export default function Navbar() {
                     <p className="text-sm text-gray-500">john@example.com</p>
                   </div>
 
-                  <a
-                    href="#"
+                  <Link
+                    to={"/profile"}
                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
                   >
                     My Profile
-                  </a>
-                  <a
-                    href="#"
+                  </Link>
+                  <Link
+                    to={"/trips"}
                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
                   >
                     My Trips
-                  </a>
-                  <a
-                    href="#"
+                  </Link>
+                  <Link
+                    to={"/bookmarks"}
                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
                   >
                     Bookmarks
-                  </a>
-                  <a
-                    href="#"
+                  </Link>
+                  <Link
+                    to={"/settings"}
                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
                   >
                     Settings
-                  </a>
+                  </Link>
 
                   <div className="border-t border-gray-100 mt-2">
-                    <a
-                      href="#"
+                    <Link
+                      to={"/"}
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors"
                     >
                       Sign Out
-                    </a>
+                    </Link>
                   </div>
                 </div>
               )}
@@ -162,19 +169,26 @@ export default function Navbar() {
 
           {/* Nav Links */}
           <Link
-            to={"/"}
+            to={"/create"}
             className="flex items-center space-x-2 text-gray-700 hover:text-blue-600 transition-colors duration-200"
           >
             <Calendar className="h-4 w-4" />
-            <span className="font-medium">Plan Trip</span>
+            <span className="font-medium">Create Trip</span>
           </Link>
 
           <Link
-            to={"/guides"}
+            to={"/discover"}
             className="flex items-center space-x-2 text-gray-700 hover:text-blue-600 transition-colors duration-200"
           >
             <BookOpen className="h-4 w-4" />
-            <span className="font-medium">Guides</span>
+            <span className="font-medium">Discover</span>
+          </Link>
+
+          <Link
+            to={"/upgrade"}
+            className="flex items-center space-x-2 text-gray-700 hover:text-blue-600 transition-colors duration-200"
+          >
+            <span className="font-medium">Upgrade</span>
           </Link>
 
           {/* Notifications + User */}

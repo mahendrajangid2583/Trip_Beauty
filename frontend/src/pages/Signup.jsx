@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { useState } from "react";
 import AuthLayout from "../components/Authlayout";
 import {
@@ -24,10 +25,10 @@ export default function Signup() {
     confirmpassword: "",
   });
 
-  const [profilePic, setProfilePic] = useState(null);
+ // const [profilePic, setProfilePic] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
-  const [picerror, setPicerror] = useState(null);
+ // const [picerror, setPicerror] = useState(null);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Handle input change
@@ -41,23 +42,23 @@ export default function Signup() {
   };
 
   // i will Handle profile pic later
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  // const handleImageChange = (e) => {
+  //   const file = e.target.files[0];
+  //   if (!file) return;
 
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      setPicerror("Only JPEG, PNG, or WebP allowed");
-      return;
-    }
+  //   if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+  //     setPicerror("Only JPEG, PNG, or WebP allowed");
+  //     return;
+  //   }
 
-    if (file.size > 2 * 1024 * 1024) {
-      setPicerror("Max size allowed is 2MB");
-      return;
-    }
+  //   if (file.size > 2 * 1024 * 1024) {
+  //     setPicerror("Max size allowed is 2MB");
+  //     return;
+  //   }
 
-    setProfilePic(file); // keep original file for backend
-    setPicerror(null);
-  };
+  //   setProfilePic(file); // keep original file for backend
+  //   setPicerror(null);
+  // };
 
   // Basic validations
   const validate = () => {
@@ -95,10 +96,10 @@ export default function Signup() {
   // Submit handler
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!validate() || picerror) return;
+    if (!validate() ) return;
 
     // Here I’ll send data to backend (Mongo/Express)
-    console.log("Registering user:", { ...formData, profilePic });
+    console.log("Registering user:", { ...formData });
   };
 
   return (
@@ -213,13 +214,13 @@ export default function Signup() {
             </div>
 
             {/* Profile Pic */}
-            <div className="sm:w-basis-1/2 w-full ">
+            {/* <div className="sm:w-basis-1/2 w-full ">
               <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
                 <ImageIcon className="w-4 h-4" /> Profile Picture
               </label>
               <div className="flex justify-evenly">
               <div className="mt-2 flex items-center gap-4">
-                {/* Clickable preview */}
+                
                 <div
                   onClick={() =>
                     document.getElementById("profilePicInput").click()
@@ -237,7 +238,7 @@ export default function Signup() {
                   )}
                 </div>
               </div>
-              {/* Hidden file input */}
+              
               <input
                 id="profilePicInput"
                 type="file"
@@ -246,7 +247,7 @@ export default function Signup() {
                 className="hidden"
               />
 
-              {/* Custom button */}
+              
               <motion.button
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
@@ -263,7 +264,7 @@ export default function Signup() {
 
             {picerror && (
               <p className="text-red-500 text-xs mt-2">{picerror}</p>
-            )}
+            )}  */}
           </div>
           <div className="flex sm:flex-row flex-col sm:gap-4">
             <div className="sm:w-basis-1/2 w-full">
@@ -279,6 +280,7 @@ export default function Signup() {
                   onChange={handleChange}
                   required
                   placeholder="••••••••"
+                  onPaste={(e)=>{e.preventDefault();}}
                   className="mt-1 w-full px-4 py-2 rounded-lg border border-gray-500 focus:ring-2 focus:ring-teal-500 focus:outline-none"
                 />
                 <button
@@ -306,6 +308,7 @@ export default function Signup() {
                     onChange={handleChange}
                     required
                     placeholder="••••••••"
+                    onPaste={(e)=>{e.preventDefault();}}
                     className="mt-1 w-full px-4 py-2 rounded-lg border border-gray-500 focus:ring-2 focus:ring-teal-500 focus:outline-none"
                   />
                   <button
