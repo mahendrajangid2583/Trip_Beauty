@@ -1,12 +1,19 @@
 import React from 'react'
-import { useState,useEffect } from 'react';
+import { useState,useEffect,useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, MapPin, Clock, TrendingUp, X, Filter, Star, Calendar, Users } from 'lucide-react';
+
+const API_BASE_URL = 'http://localhost:5000/api';
+
 const SearchPage = ({ isOpen, onClose }) => {
+  const navigate = useNavigate();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilters, setSelectedFilters] = useState([]);
   const [loading,setLoading] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [error, setError] = useState(null);
 
   // Sample data
   const popularDestinations = [
@@ -20,18 +27,44 @@ const SearchPage = ({ isOpen, onClose }) => {
 
   const recentSearches = ['Paris', 'Tokyo', 'Bali'];
 
-  const searchResults = popularDestinations.filter(dest =>
-    dest.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const searchCities = useCallback(async (query) => {
+    if (!query || query.trim() === '') {
+      setSearchResults([]);
+      return;
+    }
 
-  const SearchPlaces = async() => {
     setLoading(true);
-     try {
-        
-     } catch (error) {
-        
-     }
-  };
+    setError(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/cities/search?query=${encodeURIComponent(query)}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch cities');
+      }
+      console.log(response);
+      const data = await response.json();
+      setSearchResults(data);
+    } catch (error) {
+      console.error('Error searching cities:', error);
+      setError('Failed to search cities. Please try again.');
+      setSearchResults([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Debounce search queries
+  useEffect(() => {
+    if (!searchQuery) {
+      setSearchResults([]);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      searchCities(searchQuery);
+    }, 500); // Wait 500ms after user stops typing
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, searchCities]);
 
   // Handle close with animation
   const handleClose = () => {
@@ -153,10 +186,26 @@ const SearchPage = ({ isOpen, onClose }) => {
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 Search Results for "{searchQuery}"
               </h3>
-              <p className="text-gray-600">{searchResults.length} results found</p>
+              {loading ? (
+                <p className="text-gray-600">Searching...</p>
+              ) : (
+                <p className="text-gray-600">{searchResults.length} results found</p>
+              )}
             </div>
 
-            {searchResults.length > 0 ? (
+            {loading ? (
+              <div className="text-center py-12 animate-fade-in">
+                <Search className="h-12 w-12 text-gray-300 mx-auto mb-4 animate-pulse" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Searching...</h3>
+                <p className="text-gray-600">Please wait while we find your destinations</p>
+              </div>
+            ) : error ? (
+              <div className="text-center py-12 animate-fade-in">
+                <Search className="h-12 w-12 text-red-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-red-900 mb-2">Error</h3>
+                <p className="text-gray-600">{error}</p>
+              </div>
+            ) : searchResults.length > 0 ? (
               <div className="space-y-4">
                 {searchResults.map((result, index) => (
                   <div
@@ -165,20 +214,38 @@ const SearchPage = ({ isOpen, onClose }) => {
                     style={{ animationDelay: `${index * 50}ms` }}
                   >
                     <div className="flex items-center space-x-4">
-                      <div className="text-4xl">{result.image}</div>
+                      <div className="text-4xl">
+                        <MapPin className="h-8 w-8 text-blue-500" />
+                      </div>
                       <div>
                         <h4 className="text-lg font-medium text-gray-900">{result.name}</h4>
                         <div className="flex items-center space-x-4 mt-2">
-                          <span className="text-sm text-gray-500">{result.type}</span>
-                          <div className="flex items-center">
-                            <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                            <span className="text-sm text-gray-600 ml-1">{result.rating}</span>
-                          </div>
+                          {result.state && (
+                            <span className="text-sm text-gray-500">{result.state}</span>
+                          )}
+                          {result.country && (
+                            <span className="text-sm text-gray-600 flex items-center">
+                              <MapPin className="h-3 w-3 mr-1" />
+                              {result.country}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
                     <div className="flex space-x-2">
-                      <button className="flex items-center space-x-1 px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-150">
+                      <button 
+                        onClick={() => {
+                          navigate('/places', { 
+                            state: { 
+                              name: result.name, 
+                              lat: result.lat, 
+                              lon: result.lon 
+                            } 
+                          });
+                          onClose();
+                        }}
+                        className="flex items-center space-x-1 px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-150"
+                      >
                         <Calendar className="h-4 w-4" />
                         <span className="text-sm">Plan Trip</span>
                       </button>
