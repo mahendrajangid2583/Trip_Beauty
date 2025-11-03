@@ -1,6 +1,9 @@
 import React from 'react'
 import SearchPage from '../components/home/SearchPage';
 import HomeSearchBar from '../components/home/HomeSearchBar';
+import ReviewSection from '../components/home/ReviewSection';
+import TripPlannerDemo from '../components/home/TripPlannerDemo';
+import FeaturesSection from '../components/home/FeaturesSection';
 import { useState } from 'react';
 
 const Home = () => {
@@ -85,7 +88,17 @@ const Home = () => {
         isOpen={isSearchPageOpen} 
         onClose={handleSearchClose} 
       />
+      <div>
+            <TripPlannerDemo/>
+      </div>
+      <div>
+        <FeaturesSection/>
+      </div>
+      <div>
+            <ReviewSection/>
+      </div>
     </div>
+
   );
 }
 
