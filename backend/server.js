@@ -5,6 +5,9 @@ import dotenv from "dotenv";
 import connectDB from "./config/database.js";
 import errorHandler from "./middlewares/errorHandler.js";
 import authRoutes from "./routes/auth.js";
+import cityRoutes from "./routes/cityRoutes.js";
+import planTripRoutes from "./routes/planTrip.js";
+
 
 dotenv.config();
 connectDB();
@@ -14,6 +17,10 @@ const app = express();
 app.use(express.json({limit:"5mb"}));
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
+
+// Routes
+app.use("/api/cities", cityRoutes);
+app.use("/api", planTripRoutes);
 
 // Sample Route
 app.get("/", (req, res) => {
