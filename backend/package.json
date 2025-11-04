@@ -11,16 +11,17 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
-    "bcryptjs": "^2.4.3",
-    "razorpay": "^2.9.4",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.18.0",
-    "node-fetch": "^3.3.2"
+    "node-fetch": "^3.3.2",
+    "razorpay": "^2.9.4"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "nodemon": "^3.1.10"
   }
 }

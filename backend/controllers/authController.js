@@ -35,7 +35,7 @@ export const registerUser=async(req,res)=>{
             profilePic,
             proAccount
         })
-        const token=generateToken(user);
+        const token=generateToken({id:user._id,name:user.name});
         setAuthCookie(res, token);
         res.status(201).json({
             token,
