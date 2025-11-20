@@ -1,357 +1,495 @@
 /* eslint-disable no-unused-vars */
-import { useState } from "react";
-import AuthLayout from "../components/Authlayout";
-import {
-  User,
-  AtSign,
-  Mail,
-  Lock,
-  Image as ImageIcon,
-  Calendar,
-  Eye,
-  EyeOff,
-} from "lucide-react";
-import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
+import React, { useState, useReducer, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Mail, Lock, Eye, EyeOff, Hash } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux"; // ✅ Import Redux useDispatch
+import { loginSuccess } from "../store/userSlice"; // ✅ Import your Redux action
+
+// --- Google Icon SVG ---
+const GoogleIcon = (props) => (
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" {...props}>
+    <path d="M21.35 11.1h-9.3v2.7h5.3c-.2 1.1-.9 2-2.1 2.7v2.1h2.7c1.6-1.5 2.5-3.6 2.5-6.1 0-.6-.1-1.1-.2-1.7z" />
+    <path d="M12.05 21.6c2.6 0 4.8-1.1 6.4-3l-2.7-2.1c-.8.6-1.9 1-3.1 1-2.4 0-4.4-1.6-5.1-3.8H4.2v2.2c1.4 2.8 4.3 4.7 7.8 4.7z" />
+    <path d="M6.95 14.1c-.1-.6-.1-1.2-.1-1.8s0-1.2.1-1.8V8.4H4.2c-.4 1.1-.7 2.3-.7 3.6s.3 2.5.7 3.6l2.7-2.1z" />
+    <path d="M12.05 6.4c1.4 0 2.6.5 3.6 1.4l2.4-2.4C16.8 3.6 14.6 2.5 12 2.5c-3.6 0-6.5 1.9-7.9 4.7l2.7 2.1c.8-2.2 2.8-3.9 5.2-3.9z" />
+  </svg>
+);
+
+// --- Reducer for state management (EXPANDED) ---
+const authReducer = (state, action) => {
+  switch (action.type) {
+    case "SIGNUP_START":
+    case "VERIFY_START":
+      return { ...state, isLoading: true, error: null };
+    case "SIGNUP_SUCCESS":
+    case "VERIFY_SUCCESS":
+      return { ...state, isLoading: false, error: null };
+    case "SIGNUP_FAILURE":
+    case "VERIFY_FAILURE":
+      return { ...state, isLoading: false, error: action.payload };
+    case "SET_ERROR":
+      return { ...state, error: action.payload };
+    default:
+      return state;
+  }
+};
+
+const initialState = { isLoading: false, error: null };
+
+// --- Carousel items ---
+const carouselItems = [
+  // ... (carousel items unchanged) ...
+  {
+    image: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80",
+    fact: "Men who take regular vacations are 32% less likely to die from heart disease.",
+  },
+  {
+    image: "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?auto=format&fit=crop&w=1200&q=80",
+    fact: "Studies show traveling improves your problem-solving skills and boosts creativity.",
+  },
+  {
+    image: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1200&q=80",
+    fact: "Exploring a new culture increases your cognitive flexibility, making you more adaptable.",
+  },
+  {
+    image: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1200&q=80",
+    fact: "The anticipation of a trip can boost your happiness for weeks before you even leave.",
+  },
+  {
+    image: "https://images.unsplash.com/photo-1519681391924-f401f1011e3b?auto=format&fit=crop&w=1200&q=80",
+    fact: "Couples who travel together report increased feelings of intimacy and connection.",
+  },
+];
 
 export default function Signup() {
-  const [formData, setFormData] = useState({
-    name: "",
-    handle: "",
-    gender: "",
-    dob: "",
-    email: "",
-    password: "",
-    confirmpassword: "",
-  });
-
- // const [profilePic, setProfilePic] = useState(null);
+  const navigate = useNavigate();
+  const reduxDispatch = useDispatch(); // ✅ Get Redux dispatch function
+  
+  // --- ✅ MODIFIED: Removed 'name' from state ---
+  const [formData, setFormData] = useState({ email: "", password: "", confirmPassword: "" });
+  
   const [showPassword, setShowPassword] = useState(false);
-  const [errors, setErrors] = useState({});
- // const [picerror, setPicerror] = useState(null);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [state, dispatch] = useReducer(authReducer, initialState);
+  const [currentSlide, setCurrentSlide] = useState(0);
 
-  // Handle input change
+  // --- NEW STATE FOR OTP FLOW ---
+  const [view, setView] = useState('signup'); // 'signup' or 'verify'
+  const [otp, setOtp] = useState('');
+
+  const { isLoading, error } = state;
+
+  // --- Auto carousel ---
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % carouselItems.length);
+    }, 7000);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleChange = (e) => {
-    if (e.target.name == "handle") {
-      //validate handle
-      console.log("handle will be validated.");
-    }
-
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    if (errors[e.target.name]) setErrors({ ...errors, [e.target.name]: null });
   };
 
-  // i will Handle profile pic later
-  // const handleImageChange = (e) => {
-  //   const file = e.target.files[0];
-  //   if (!file) return;
-
-  //   if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-  //     setPicerror("Only JPEG, PNG, or WebP allowed");
-  //     return;
-  //   }
-
-  //   if (file.size > 2 * 1024 * 1024) {
-  //     setPicerror("Max size allowed is 2MB");
-  //     return;
-  //   }
-
-  //   setProfilePic(file); // keep original file for backend
-  //   setPicerror(null);
-  // };
-
-  // Basic validations
   const validate = () => {
-    let newErrors = {};
-
-    if (!formData.name.trim()) newErrors.name = "Full name is required";
-    if (!formData.handle.match(/^[a-zA-Z0-9_]{3,15}$/))
-      newErrors.handle =
-        "Handle must be 3–15 characters (letters, numbers, underscores)";
-    if (!formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/))
-      newErrors.email = "Enter a valid email";
-    if (!formData.dob) newErrors.dob = "Date of birth is required";
-
-    // Checking age >= 10
-    if (formData.dob) {
-      const birthDate = new Date(formData.dob);
-      const age = new Date().getFullYear() - birthDate.getFullYear();
-      if (age < 10) newErrors.dob = "You must be at least 10 years old";
+    const newErrors = {};
+    
+    // --- ✅ MODIFIED: Removed 'name' validation ---
+    
+    if (!formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+      newErrors.email = "Please enter a valid email address.";
     }
 
+    // --- ✅ MODIFIED: Updated Regex and Error Message ---
     if (
-      !formData.password.match(
-        /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,16}$/
-      )
-    )
-      newErrors.password =
-        "Password must be 8+ chars, include 1 uppercase, 1 number & 1 special char";
-    if (formData.password !== formData.confirmpassword)
-      newErrors.confirmpassword = "Password didn't match.";
-
+      !formData.password.match(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,16}$/)
+    ) {
+      newErrors.password = "Password must be 8-16 chars, with 1 lowercase, 1 uppercase, 1 number & 1 special char.";
+    }
+    
+    if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = "Passwords do not match.";
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  // Submit handler
-  const handleSubmit = (e) => {
+  // --- REAL BACKEND CALL (MODIFIED) ---
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validate() ) return;
+    if (!validate()) return;
+    dispatch({ type: "SIGNUP_START" });
 
-    // Here I’ll send data to backend (Mongo/Express)
-    console.log("Registering user:", { ...formData });
+    try {
+      const response = await fetch("http://localhost:5000/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          // --- ✅ MODIFIED: Removed 'name' from body ---
+          email: formData.email,
+          password: formData.password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Signup failed.");
+      }
+
+      dispatch({ type: "SIGNUP_SUCCESS" });
+      
+      // --- CHANGE VIEW TO OTP FORM INSTEAD OF NAVIGATING ---
+      setView('verify'); 
+
+    } catch (err) {
+      dispatch({ type: "SIGNUP_FAILURE", payload: err.message });
+    }
   };
 
+  // --- NEW: OTP VERIFICATION HANDLER ---
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    dispatch({ type: "VERIFY_START" });
+
+    if (otp.length !== 6) {
+        dispatch({ type: "SET_ERROR", payload: "OTP must be 6 digits." });
+        return;
+    }
+
+    try {
+        const response = await fetch("http://localhost:5000/api/auth/verify-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                email: formData.email, // Use the email from state
+                otp: otp,
+            }),
+        });
+
+        const data = await response.json(); // This should contain { user: {...} }
+
+        if (!response.ok) {
+            throw new Error(data.message || "OTP verification failed.");
+        }
+
+        dispatch({ type: "VERIFY_SUCCESS" });
+        
+        // --- ✅ LOGIN SUCCESS: DISPATCH TO REDUX & REDIRECT ---
+        reduxDispatch(loginSuccess(data)); // data is { user: {...} }
+        navigate("/"); // Redirect to home/dashboard
+
+    } catch (err) {
+        dispatch({ type: "VERIFY_FAILURE", payload: err.message });
+    }
+  };
+
+  // --- NEW: RESEND OTP HANDLER ---
+  const handleResendOtp = async () => {
+    dispatch({ type: "VERIFY_START" }); // Show loading spinner
+    try {
+        const response = await fetch("http://localhost:5000/api/auth/resend-verification", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: formData.email }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message);
+        dispatch({ type: "SIGNUP_SUCCESS" }); // Re-use success to stop loading
+    } catch (err) {
+        dispatch({ type: "VERIFY_FAILURE", payload: err.message });
+    }
+  }
+
+  const handleGoogleSignup = () => {
+    // This is correct. It sends the user to your backend to start
+    // the OAuth flow. The backend handles the redirect back to
+    // your app after success.
+    window.location.href = "http://localhost:5000/api/auth/google";
+  };
+
+  const backgroundImage =
+    "https://res.cloudinary.com/dxif9sbfw/image/upload/v1762286308/mountain-with-cliff_1_izaugd.jpg";
+
   return (
-    <AuthLayout>
+    <div className="relative flex items-center justify-center min-h-screen font-inter p-4 overflow-hidden bg-gray-900">
+      {/* background */}
+      <div
+        className="absolute inset-0 bg-cover bg-center transition-all duration-300 z-0"
+        style={{
+          backgroundImage: `url(${backgroundImage})`,
+          filter: "grayscale(50%) brightness(50%) blur(8px)",
+          transform: "scale(1.05)",
+        }}
+      ></div>
+
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="relative z-20 w-full max-w-4xl bg-black/20 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
       >
-        <h1 className="text-3xl font-extrabold mb-6 text-center text-gray-800">
-          SignUp
-        </h1>
-
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Full Name */}
-          <div className="flex sm:flex-row flex-col sm:gap-4">
-            <div className="sm:w-basis-1/2 w-full">
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                <User className="w-4 h-4" /> Full Name
-              </label>
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                required
-                className="mt-1 w-full px-4 py-2 rounded-lg border border-gray-500 focus:ring-2 focus:ring-teal-500 focus:outline-none"
-              />
-              {errors.name && (
-                <p className="text-red-500 text-xs">{errors.name}</p>
-              )}
-            </div>
-
-            {/* Handle */}
-            <div className="sm:w-basis-1/2 w-full">
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                <AtSign className="w-4 h-4" /> Handle
-              </label>
-              <input
-                type="text"
-                name="handle"
-                value={formData.handle}
-                onChange={handleChange}
-                required
-                placeholder="@traveler123"
-                className="mt-1 w-full px-4 py-2 rounded-lg border border-gray-500 focus:ring-2 focus:ring-teal-500 focus:outline-none"
-              />
-              {errors.handle && (
-                <p className="text-red-500 text-xs">{errors.handle}</p>
-              )}
-            </div>
-          </div>
-          {/* Gender + DOB */}
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700">
-                Gender
-              </label>
-              <select
-                name="gender"
-                value={formData.gender}
-                onChange={handleChange}
-                required
-                className="mt-1 w-full px-4 py-2 rounded-lg  border border-gray-500 focus:ring-2 focus:ring-teal-500 focus:outline-none"
-              >
-                <option value="" className="rounded-md bg-black/10">
-                  Select
-                </option>
-                <option className="rounded-md bg-black/10">Male</option>
-                <option className="rounded-md bg-black/10">Female</option>
-                {/* <option>Other</option>
-                <option>Prefer not to say</option> */}
-              </select>
-            </div>
-
-            <div className="flex-1">
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                <Calendar className="w-4 h-4" /> Date of Birth
-              </label>
-              <input
-                type="date"
-                name="dob"
-                value={formData.dob}
-                onChange={handleChange}
-                required
-                className="mt-1 w-full px-4 py-2 rounded-lg border border-gray-500 focus:ring-2 focus:ring-teal-500 focus:outline-none"
-              />
-              {errors.dob && (
-                <p className="text-red-500 text-xs">{errors.dob}</p>
-              )}
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-2">
+          {/* Left carousel */}
+          <div className="relative h-64 md:h-full min-h-[500px] overflow-hidden">
+             {/* ... (carousel code unchanged) ... */}
+             <div className="absolute top-0 left-0 p-8 z-10">
+      <h1 className="text-4xl font-bold text-white" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+       Quester
+      </h1>
+     </div>
+   <AnimatePresence>
+     <motion.div
+       key={currentSlide}
+       initial={{ opacity: 0, scale: 1.05 }}
+       animate={{ opacity: 1, scale: 1 }}
+       exit={{ opacity: 0, scale: 1.05 }}
+       transition={{ duration: 2, ease: "easeInOut" }}
+       className="absolute inset-0 bg-cover bg-center"
+       style={{ backgroundImage: `url(${carouselItems[currentSlide].image})` }}
+      />
+   </AnimatePresence>
+   <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+   <div className="absolute bottom-0 left-0 p-8 text-white">
+     <AnimatePresence mode="wait">
+       <motion.p
+         key={currentSlide}
+         initial={{ opacity: 0, y: 20 }}
+         animate={{ opacity: 1, y: 0 }}
+         transition={{ duration: 0.5, delay: 0.3, ease: "easeOut" }}
+         className="text-xl font-medium mb-4"
+       >
+         {carouselItems[currentSlide].fact}
+       </motion.p>
+     </AnimatePresence>
+     <div className="flex space-x-2">
+       {carouselItems.map((_, index) => (
+         <button
+           key={index}
+           onClick={() => setCurrentSlide(index)}
+           className={`w-2 h-2 rounded-full ${
+             index === currentSlide ? "bg-white scale-125" : "bg-white/50"
+           } transition-all duration-300`}
+          />
+       ))}
+     </div>
+   </div>
           </div>
 
-          {/* Email */}
-          <div className="flex sm:flex-row flex-col sm:gap-4">
-            <div className="sm:w-basis-1/2 w-full">
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                <Mail className="w-4 h-4" /> Email
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                placeholder="you@example.com"
-                className="mt-1 w-full px-4 py-2 rounded-lg border border-gray-500 focus:ring-2 focus:ring-teal-500 focus:outline-none"
-              />
-              {errors.email && (
-                <p className="text-red-500 text-xs">{errors.email}</p>
-              )}
-            </div>
+          {/* Right: Form Area */}
+          <div className="p-8 md:p-10 space-y-6 min-h-[500px] flex flex-col justify-center">
+            
+            {/* --- VIEW 1: SIGNUP FORM --- */}
+            {view === 'signup' && (
+              <>
+                <h2 className="text-3xl font-bold text-white text-center">Create Account</h2>
+                <p className="text-center text-gray-300 pb-4">Start your quest today.</p>
 
-            {/* Profile Pic */}
-            {/* <div className="sm:w-basis-1/2 w-full ">
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                <ImageIcon className="w-4 h-4" /> Profile Picture
-              </label>
-              <div className="flex justify-evenly">
-              <div className="mt-2 flex items-center gap-4">
-                
-                <div
-                  onClick={() =>
-                    document.getElementById("profilePicInput").click()
-                  }
-                  className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 border shadow cursor-pointer hover:ring-2 hover:ring-teal-400 transition"
-                >
-                  {profilePic ? (
-                    <img
-                      src={URL.createObjectURL(profilePic)}
-                      alt="Preview"
-                      className="w-full h-full rounded-full object-cover"
-                    />
-                  ) : (
-                    <ImageIcon className="w-6 h-6" />
-                  )}
-                </div>
-              </div>
-              
-              <input
-                id="profilePicInput"
-                type="file"
-                accept="image/*"
-                onChange={handleImageChange}
-                className="hidden"
-              />
-
-              
-              <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-                type="button"
-                onClick={() =>
-                  document.getElementById("profilePicInput").click()
-                }
-                className="basis-1/2 self-center bg-black text-white py-2 rounded-xl font-semibold shadow-lg transition-all duration-300 flex items-center justify-center gap-2"
-              >
-                Choose File
-              </motion.button>
-              </div>
-            </div>
-
-            {picerror && (
-              <p className="text-red-500 text-xs mt-2">{picerror}</p>
-            )}  */}
-          </div>
-          <div className="flex sm:flex-row flex-col sm:gap-4">
-            <div className="sm:w-basis-1/2 w-full">
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                <Lock className="w-4 h-4" /> Password
-              </label>
-              <div className="relative">
-                <input
-                  minLength={8}
-                  type={showPassword ? "text" : "password"}
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                  placeholder="••••••••"
-                  onPaste={(e)=>{e.preventDefault();}}
-                  className="mt-1 w-full px-4 py-2 rounded-lg border border-gray-500 focus:ring-2 focus:ring-teal-500 focus:outline-none"
-                />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-gray-500 hover:text-gray-700"
+                  onClick={handleGoogleSignup}
+                  className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-white text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-100 transition-all duration-300"
                 >
-                  {showPassword ? (
-                    <EyeOff className="w-4 h-4" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
+                  <GoogleIcon />
+                  Sign up with Google
                 </button>
-              </div>
-              </div>
-              <div className="sm:w-basis-1/2 w-full">
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                  <Lock className="w-4 h-4" /> Confirm Password
-                </label>
-                <div className="relative">
-                  <input
-                    type={showConfirmPassword ? "text" : "password"}
-                    name="confirmpassword"
-                    value={formData.confirmpassword}
-                    onChange={handleChange}
-                    required
-                    placeholder="••••••••"
-                    onPaste={(e)=>{e.preventDefault();}}
-                    className="mt-1 w-full px-4 py-2 rounded-lg border border-gray-500 focus:ring-2 focus:ring-teal-500 focus:outline-none"
-                  />
+
+                <div className="flex items-center space-x-2">
+                  <div className="flex-grow h-px bg-white/20"></div>
+                  <span className="text-gray-400 text-sm">OR CONTINUE WITH EMAIL</span>
+                  <div className="flex-grow h-px bg-white/20"></div>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  
+                  {/* --- ✅ MODIFIED: 'name' field removed --- */}
+                  
+                  {/* email */}
+                  {/* --- ✅ MODIFIED: Wrapped in <div>, error moved out --- */}
+                  <div>
+                    <div className="relative">
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="email"
+                        name="email"
+                        value={formData.email}
+                        onChange={handleChange}
+                        placeholder="you@example.com"
+                        required
+                        className={`w-full pl-12 pr-4 py-3 bg-white/5 border ${
+                          errors.email ? "border-red-500" : "border-white/20"
+                        } text-white rounded-lg focus:ring-2 focus:ring-yellow-800/80 focus:outline-none transition-all duration-200 placeholder-gray-500`}
+                      />
+                    </div>
+                    {errors.email && <p className="text-red-400 text-xs mt-1 ml-1">{errors.email}</p>}
+                  </div>
+
+                  {/* password */}
+                  {/* --- ✅ MODIFIED: Wrapped in <div>, error moved out --- */}
+                  <div>
+                    <div className="relative">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        name="password"
+                        value={formData.password}
+                        onChange={handleChange}
+                        placeholder="••••••••"
+                        required
+                        minLength={8}
+                        className={`w-full pl-12 pr-12 py-3 bg-white/5 border ${
+                          errors.password ? "border-red-500" : "border-white/20"
+                        } text-white rounded-lg focus:ring-2 focus:ring-yellow-800/80 focus:outline-none transition-all duration-200 placeholder-gray-500`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200"
+                      >
+                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                      </button>
+                    </div>
+                    {errors.password && <p className="text-red-400 text-xs mt-1 ml-1">{errors.password}</p>}
+                  </div>
+
+                  {/* confirm password */}
+                  {/* --- ✅ MODIFIED: Wrapped in <div>, error moved out --- */}
+                  <div>
+                    <div className="relative">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type={showConfirmPassword ? "text" : "password"}
+                        name="confirmPassword"
+                        value={formData.confirmPassword}
+                        onChange={handleChange}
+                        placeholder="Confirm password"
+                        required
+                        className={`w-full pl-12 pr-12 py-3 bg-white/5 border ${
+                          errors.confirmPassword ? "border-red-500" : "border-white/20"
+                        } text-white rounded-lg focus:ring-2 focus:ring-yellow-800/80 focus:outline-none transition-all duration-200 placeholder-gray-500`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200"
+                      >
+                        {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                      </button>
+                    </div>
+                    {errors.confirmPassword && (
+                      <p className="text-red-400 text-xs mt-1 ml-1">{errors.confirmPassword}</p>
+                    )}
+                  </div>
+
+                  {error && (
+                    <div className="bg-red-900/40 border border-red-500 text-red-300 px-4 py-3 rounded-lg text-sm text-center animate-shake">
+                      <p>{error}</p>
+                    </div>
+                  )}
+
                   <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-3 text-gray-500 hover:text-gray-700"
+                    type="submit"
+                    disabled={isLoading}
+                    style={{ height: "52px" }}
+                    className="w-full bg-[#635348] text-white py-3 rounded-lg font-semibold text-lg hover:bg-[#52443a] transition-all duration-300 shadow-lg hover:shadow-xl disabled:bg-[#4a3e36] disabled:cursor-not-allowed flex items-center justify-center"
                   >
-                    {showConfirmPassword ? (
-                      <EyeOff className="w-4 h-4" />
+                    {isLoading ? (
+                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
                     ) : (
-                      <Eye className="w-4 h-4" />
+                      "Create Account"
                     )}
                   </button>
+                </form>
+
+                <div className="text-center text-sm text-gray-400">
+                  Already have an account?{" "}
+                  <Link to="/login" className="text-yellow-600 font-medium hover:underline">
+                    Log in
+                  </Link>
                 </div>
-                {errors.confirmpassword && (
-                  <p className="text-red-500 text-xs">
-                    {errors.confirmpassword}
-                  </p>
-                )}
-              </div>
+              </>
+            )}
+
+            {/* --- VIEW 2: VERIFY OTP FORM --- */}
+            {view === 'verify' && (
+               <div className="text-center flex flex-col justify-center">
+                 <h2 className="text-3xl font-bold text-white mb-4">Check your email</h2>
+                 <p className="text-gray-300 text-lg">
+                   We've sent a 6-digit code to <strong className="text-white">{formData.email}</strong>.
+                 </p>
+                 <p className="text-gray-400 mt-2">
+                   Please enter it below to verify your account.
+                 </p>
+ 
+                 <form onSubmit={handleVerifyOtp} className="space-y-5 mt-8">
+                     {/* OTP Input */}
+                     <div className="relative">
+                         <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                         <input
+                             type="text"
+                             name="otp"
+                             value={otp}
+                             onChange={(e) => setOtp(e.target.value)}
+                             placeholder="123456"
+                             maxLength={6}
+                             required
+                             className={`w-full pl-12 pr-4 py-3 bg-white/5 border ${
+                                 error ? "border-red-500" : "border-white/20"
+                             } text-white rounded-lg focus:ring-2 focus:ring-yellow-800/80 focus:outline-none transition-all duration-200 placeholder-gray-500 text-center tracking-[0.3em] text-lg`}
+                         />
+                     </div>
+ 
+                     {error && (
+                         <div className="bg-red-900/40 border border-red-500 text-red-300 px-4 py-3 rounded-lg text-sm text-center animate-shake">
+                             <p>{error}</p>
+                         </div>
+                     )}
+ 
+                     <button
+                         type="submit"
+                         disabled={isLoading}
+                         style={{ height: "52px" }}
+                         className="w-full bg-[#635348] text-white py-3 rounded-lg font-semibold text-lg hover:bg-[#52443a] transition-all duration-300 shadow-lg hover:shadow-xl disabled:bg-[#4a3e36] disabled:cursor-not-allowed flex items-center justify-center"
+                     >
+                         {isLoading ? (
+                             <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                             </svg>
+                         ) : (
+                             "Verify & Log In"
+                         )}
+                     </button>
+                 </form>
+ 
+                 <div className="text-center text-sm text-gray-400 mt-6">
+                     Didn't get a code?{" "}
+                     <button onClick={handleResendOtp} disabled={isLoading} className="text-yellow-600 font-medium hover:underline disabled:text-gray-500">
+                         Resend Code
+                     </button>
+                 </div>
+               </div>
+            )}
             
           </div>
-          {/* Submit */}
-          <motion.button
-            type="submit"
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            className="w-full bg-black text-white py-3 rounded-xl font-semibold shadow-lg transition-all duration-300 flex items-center justify-center gap-2"
-          >
-            Sign Up
-          </motion.button>
-        </form>
-
-        <p className="mt-6 text-center text-gray-600">
-          Already have an account?{" "}
-          <a
-            href="/login"
-            className="text-teal-600 font-semibold hover:underline"
-          >
-            Log in
-          </a>
-        </p>
+        </div>
       </motion.div>
-    </AuthLayout>
+      <style>{`
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+          20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+        .animate-shake {
+          animation: shake 0.5s ease-in-out;
+        }
+      `}</style>
+    </div>
   );
 }

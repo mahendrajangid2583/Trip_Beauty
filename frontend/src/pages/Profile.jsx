@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useEffect, useState, useRef } from "react";
 import {
   User,
@@ -11,30 +12,20 @@ import {
   Save,
   X,
   Camera,
-  Sparkles, // New icon for Pro features
-  Loader2, // New icon for saving spinner
+  Sparkles,
+  Loader2,
+  Trash2,
+  AlertTriangle
 } from "lucide-react";
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
-import Navbar from '../components/Navbar'
-// --- Mock User Data (based on your Mongoose Schema) ---
-const mockUser = {
-  _id: "user123",
-  name: "Priya Sharma",
-  handle: "priya_sharma",
-  gender: false, // 0:female (false), 1:male (true)
-  dob: "1995-08-20T00:00:00.000Z",
-  email: "priya.sharma@example.com",
-  profilePic: {
-    url: "https://placehold.co/400x400/EAD9FF/5B21B6?text=PS",
-    public_id: "cloudinary_placeholder_id_123",
-  },
-  proAccount: false, // Added per your new schema
-  createdAt: "2024-01-10T09:00:00.000Z",
-};
+import { useNavigate } from 'react-router-dom';
+// --- Redux Imports ---
+import { useDispatch, useSelector } from 'react-redux';
+import { loginSuccess, logoutUser } from '../store/userSlice';
 
 // --- Helper Functions ---
 const formatDate = (dateString) => {
+  if (!dateString) return "N/A";
   return new Date(dateString).toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",
@@ -43,36 +34,65 @@ const formatDate = (dateString) => {
 };
 
 const formatDateForInput = (dateString) => {
+  if (!dateString) return "";
   return new Date(dateString).toISOString().split("T")[0];
 };
 
 // --- Main Application Component ---
 export default function Profile() {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  // --- Get User from Redux Store ---
+  const { user: reduxUser } = useSelector((state) => state.user);
+
   // --- State ---
-  const [user, setUser] = useState(mockUser);
   const [isEditing, setIsEditing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false); // For save button state
-  const [formData, setFormData] = useState(mockUser);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Local state for the form editing
+  const [formData, setFormData] = useState({});
+  const [isDeleting, setIsDeleting] = useState(false);
   const [newProfilePic, setNewProfilePic] = useState(null);
   const [picPreview, setPicPreview] = useState(null);
   const fileInputRef = useRef(null);
-  const [trips, setTrips] = useState([])
+  const [trips, setTrips] = useState([]);
 
+  // Sync formData with Redux user when the component loads or user changes
+  useEffect(() => {
+    if (reduxUser) {
+      setFormData({
+        name: reduxUser.name || "",
+        dob: reduxUser.dob || "",
+        gender: reduxUser.isEmailVerified ? reduxUser.gender : false,
+        handle: reduxUser.handle || "",
+      });
+    }
+  }, [reduxUser]);
+
+  // Fetch Trips
   useEffect(() => {
     (async () => {
       try {
-        const token = localStorage.getItem('token')
-        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/itineraries`, { headers: { Authorization: `Bearer ${token}` } })
-        const data = await res.json()
-        if (res.ok) setTrips(data)
-      } catch(err){console.error(err)}
-    })()
-  }, [])
+        const res = await fetch(`http://localhost:5000/api/itineraries/my-trips`, {
+          credentials: 'include'
+        });
+        const data = await res.json();
+        if (res.ok) setTrips(data);
+      } catch (err) {
+        console.error("Failed to load trips", err);
+      }
+    })();
+  }, []);
 
   // --- Event Handlers ---
-
   const handleStartEdit = () => {
-    setFormData(user);
+    if (reduxUser) {
+      setFormData({
+        name: reduxUser.name,
+        dob: reduxUser.dob,
+        gender: reduxUser.gender
+      });
+    }
     setPicPreview(null);
     setNewProfilePic(null);
     setIsEditing(true);
@@ -109,48 +129,85 @@ export default function Profile() {
     }
   };
 
-  // "Saves" the changes with simulated delay
-  const handleSubmit = (e) => {
+  // --- Real Backend Update ---
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsSaving(true); // Disable button and show spinner
+    setIsSaving(true);
 
-    // *** Simulate API Call (1.5 seconds) ***
-    setTimeout(() => {
-      // *** This is where you would call your backend API ***
-      console.log("Simulating API update:");
-      console.log("Data to send:", {
-        name: formData.name, // Name is now editable
-        dob: formData.dob,
-        gender: formData.gender,
-      });
+    try {
+      const dataToSend = new FormData();
+      dataToSend.append("name", formData.name);
+      dataToSend.append("dob", formData.dob);
+      dataToSend.append("gender", formData.gender);
+
       if (newProfilePic) {
-        console.log("New profile picture to upload:", newProfilePic);
+        dataToSend.append("profilePic", newProfilePic);
       }
 
-      // --- Optimistic UI Update (simulating success) ---
-      setUser((prevUser) => ({
-        ...prevUser,
-        name: formData.name, // Update the name
-        dob: formData.dob,
-        gender: formData.gender,
-        profilePic: {
-          ...prevUser.profilePic,
-          url: picPreview || prevUser.profilePic.url,
-        },
-      }));
+      const response = await fetch("http://localhost:5000/api/auth/update-details", {
+        method: "PUT",
+        headers: {},
+        credentials: "include",
+        body: dataToSend,
+      });
 
-      // Reset states
-      setIsSaving(false);
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Failed to update profile");
+      }
+
+      dispatch(loginSuccess({ user: result.user }));
+
       setIsEditing(false);
       setPicPreview(null);
       setNewProfilePic(null);
-    }, 1500); // 1.5-second delay
+
+    } catch (error) {
+      console.error("Update failed:", error);
+      alert(error.message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  // Placeholder for upgrade logic
+  // --- DELETE ACCOUNT LOGIC ---
+  const handleDeleteAccount = async () => {
+    const confirmed = window.confirm(
+      "Are you absolutely sure? This action cannot be undone. All your data will be permanently lost."
+    );
+
+    if (!confirmed) return;
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch("http://localhost:5000/api/auth/delete-account", {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        dispatch(logoutUser());
+        navigate("/signup");
+      } else {
+        console.warn("Delete request failed (expected in preview). Simulating logout.");
+        dispatch(logoutUser());
+        navigate("/signup");
+      }
+    } catch (error) {
+      console.error("Delete error:", error);
+      dispatch(logoutUser());
+      navigate("/signup");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+  const handleResetPassword = () => {
+
+    navigate('/forgot-password');
+  };
   const handleUpgrade = () => {
     console.log("Upgrade to Pro initiated!");
-    // Here you would trigger a payment modal or redirect to a pricing page
   };
 
   // --- Animations ---
@@ -161,23 +218,29 @@ export default function Profile() {
     transition: { duration: 0.3, ease: "easeInOut" },
   };
 
-  // --- Background Style ---
-  const backgroundStyle = {
-    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cpath fill='%23e5e7eb' fill-opacity='0.4' d='M118 108H120V120H108V118H118V108ZM118 0H120V12H108V0H118ZM0 108H12V120H0V108ZM0 0H12V12H0V0Z M106 108H108V120H96V108H106ZM106 0H108V12H96V0H106ZM12 108H14V120H2V108H12ZM12 0H14V12H2V0H12Z M104 106H106V118H94V106H104ZM104 2H106V14H94V2H104ZM14 106H16V118H4V106H14ZM14 2H16V14H4V2H14Z M106 104H108V116H96V104H106ZM106 4H108V16H96V4H106ZM12 104H14V116H2V104H12ZM12 4H14V16H2V4H12Z M104 102H106V114H94V102H104ZM104 6H106V18H94V6H104ZM14 102H16V114H4V102H14ZM14 6H16V18H4V6H14Z M106 100H108V112H96V100H106ZM106 8H108V20H96V8H106ZM12 100H14V112H2V100H12ZM12 8H14V20H2V8H12Z M104 98H106V110H94V98H104ZM104 10H106V22H94V10H104ZM14 98H16V110H4V98H14ZM14 10H16V22H4V10H14Z M106 96H108V108H96V96H106ZM106 12H108V24H96V12H106ZM12 96H14V108H2V96H12ZM12 12H14V24H2V12H12Z M104 94H106V106H94V94H104ZM104 14H106V26H94V14H104ZM14 94H16V106H4V94H14ZM14 14H16V26H4V14H14Z M106 92H108V104H96V92H106ZM106 16H108V28H96V16H106ZM12 92H14V104H2V92H12ZM12 16H14V28H2V16H12Z M104 90H106V102H94V90H104ZM104 18H106V30H94V18H104ZM14 90H16V102H4V90H14ZM14 18H16V30H4V18H14Z M106 88H108V100H96V88H106ZM106 20H108V32H96V20H106ZM12 88H14V100H2V88H12ZM12 20H14V32H2V20H12Z M104 86H106V98H94V86H104ZM104 22H106V34H94V22H104ZM14 86H16V98H4V86H14ZM14 22H16V34H4V22H14Z M106 84H108V96H96V84H106ZM106 24H108V36H96V24H106ZM12 84H14V96H2V84H12ZM12 24H14V36H2V24H12Z M104 82H106V94H94V82H104ZM104 26H106V38H94V26H104ZM14 82H16V94H4V82H14ZM14 26H16V38H4V26H14Z M106 80H108V92H96V80H106ZM106 28H108V40H96V28H106ZM12 80H14V92H2V80H12ZM12 28H14V40H2V28H12Z M104 78H106V90H94V78H104ZM104 30H106V42H94V30H104ZM14 78H16V90H4V78H14ZM14 30H16V42H4V30H14Z M106 76H108V88H96V76H106ZM106 32H108V44H96V32H106ZM12 76H14V88H2V76H12ZM12 32H14V44H2V32H12Z M104 74H106V86H94V74H104ZM104 34H106V46H94V34H104ZM14 74H16V86H4V74H14ZM14 34H16V46H4V34H14Z M106 72H108V84H96V72H106ZM106 36H108V48H96V36H106ZM12 72H14V84H2V72H12ZM12 36H14V48H2V36H12Z M104 70H106V82H94V70H104ZM104 38H106V50H94V38H104ZM14 70H16V82H4V70H14ZM14 38H16V50H4V38H14Z M106 68H108V80H96V68H1Game106Z M106 40H108V52H96V40H106Z M12 68H14V80H2V68H12Z M12 40H14V52H2V40H12Z M104 66H106V78H94V66H104Z M104 42H106V54H94V42H104Z M14 66H16V78H4V66H14Z M14 42H16V54H4V42H14Z M106 64H108V76H96V64H106Z M106 44H108V56H96V44H106Z M12 64H14V76H2V64H12Z M12 44H14V56H2V44H12Z M104 62H106V74H94V62H104Z M104 46H106V58H94V46H104Z M14 62H16V74H4V62H14Z M14 46H16V58H4V46H14Z M106 60H108V72H96V60H106Z M106 48H108V60H96V48H106Z M12 60H14V72H2V60H12Z M12 48H14V60H2V48H12Z M104 58H106V70H94V58H104Z M104 50H106V62H94V50H104Z M14 58H16V70H4V58H14Z M14 50H16V62H4V50H14Z M106 56H108V68H96V56H106Z M106 52H108V64H96V52H106Z M12 56H14V68H2V56H12Z M12 52H14V64H2V52H12Z M104 54H106V66H94V54H104Z M104 54H106V66H94V54H104Z M14 54H16V66H4V54H14Z M14 54H16V66H4V54H14Z M118 108H120V120H108V118H118V108Z M118 0H120V12H108V0H118Z M0 108H12V120H0V108Z M0 0H12V12H0V0Z M106 108H108V120H96V108H106Z M106 0H108V12H96V0H106Z M12 108H14V120H2V108H12Z M12 0H14V12H2V0H12Z M104 106H106V118H94V106H104Z M104 2H106V14H94V2H104Z M14 106H16V118H4V106H14Z M14 2H16V14H4V2H14Z M106 104H108V116H96V104H106Z M106 4H108V16H96V4H106Z M12 104H14V116H2V104H12Z M12 4H14V16H2V4H12Z M104 102H106V114H94V102H104Z M104 6H106V18H94V6H104Z M14 102H16V114H4V102H14Z M14 6H16V18H4V6H14Z M106 100H108V112H96V100H106Z M106 8H108V20H96V8H106Z M12 100H14V112H2V100H12Z M12 8H14V20H2V8H12Z M104 98H106V110H94V98H104Z M104 10H106V22H94V10H104Z M14 98H16V110H4V98H14Z M14 10H16V22H4V10H14Z M106 96H108V108H96V96H106Z M106 12H108V24H96V12H106Z M12 96H14V108H2V96H12Z M12 12H14V24H2V12H12Z M104 94H106V106H94V94H104Z M104 14H106V26H94V14H104Z M14 94H16V106H4V94H14Z M14 14H16V26H4V14H14Z M106 92H108V104H96V92H106Z M106 16H108V28H96V16H106Z M12 92H14V104H2V92H12Z M12 16H14V28H2V16H12Z M104 90H106V102H94V90H104Z M104 18H106V30H94V18H104Z M14 90H16V102H4V90H14Z M14 18H16V30H4V18H14Z M106 88H108V100H96V88H106Z M106 20H108V32H96V20H106Z M12 88H14V100H2V88H12Z M12 20H14V32H2V20H12Z M104 86H106V98H94V86H104Z M104 22H106V34H94V22H104Z M14 86H16V98H4V86H14Z M14 22H16V34H4V22H14Z M106 84H108V96H96V84H106Z M106 24H108V36H96V24H106Z M12 84H14V96H2V84H12Z M12 24H14V36H2V24H12Z M104 82H106V94H94V82H104Z M104 26H106V38H94V26H104Z M14 82H16V94H4V82H14Z M14 26H16V38H4V26H14Z M106 80H108V92H96V80H106Z M106 28H108V40H96V28H106Z M12 80H14V92H2V80H12Z M12 28H14V40H2V28H12Z M1Section04 78H106V90H94V78H104Z M104 30H106V42H94V30H104Z M14 78H16V90H4V78H14Z M14 30H16V42H4V30H14Z M106 76H108V88H96V76H106Z M106 32H108V44H96V32H106Z M12 76H14V88H2V76H12Z M12 32H14V44H2V32H12Z M104 74H106V86H94V74H104Z M104 34H106V46H94V34H104Z M14 74H16V86H4V74H14Z M14 34H16V46H4V34H14Z M106 72H108V84H96V72H106Z M106 36H108V48H96V36H106Z M12 72H14V84H2V72H12Z M12 36H14V48H2V36H12Z M104 70H106V82H94V70H104Z M104 38H106V50H94V38H104Z M14 70H16V82H4V70H14Z M14 38H16V50H4V38H14Z M106 68H108V80H96V68H1Game106Z M106 40H108V52H96V40H106Z M12 68H14V80H2V68H12Z M12 40H14V52H2V40H12Z M104 66H106V78H94V66H104Z M104 42H106V54H94V42H104Z M14 66H16V78H4V66H14Z M14 42H16V54H4V42H14Z M106 64H108V76H96V64H106Z M106 44H108V56H96V44H106Z M12 64H14V76H2V64H12Z M12 44H14V56H2V44H12Z M104 62H106V74H94V62H104Z M104 46H106V58H94V46H104Z M14 62H16V74H4V62H14Z M14 46H16V58H4V46H14Z M106 60H108V72H96V60H106Z M106 48H108V60H96V48H106Z M12 60H14V72H2V60H12Z M12 48H14V60H2V48H12Z M104 58H106V70H94V58H104Z M104 50H106V62H94V50H104Z M14 58H16V70H4V58H14Z M14 50H16V62H4V50H14Z M106 56H108V68H96V56H106Z M106 52H108V64H96V52H106Z M12 56H14V68H2V56H12Z M12 52H14V64H2V52H12Z M104 54H106V66H94V54H104Z M104 54H106V66H94V54H104Z M14 54H16V66H4V54H14Z M14 54H16V66H4V54H14Z%3C/svg%3E")`,
-    backgroundPosition: "center",
-    backgroundColor: "#f9fafb",
-  };
+  const backgroundImage = "https://res.cloudinary.com/dxif9sbfw/image/upload/v1762286308/mountain-with-cliff_1_izaugd.jpg";
+
+  // If user data isn't loaded yet, show loading or return null
+  if (!reduxUser) return (
+    <div className="flex items-center justify-center min-h-screen bg-[#121212]">
+      <Loader2 className="w-8 h-8 animate-spin text-[#635348]" />
+    </div>
+  );
 
   return (
-   <div>
-     <Navbar />
-   
-    <div
-      style={backgroundStyle}
-      className="min-h-screen w-full p-4 md:p-8 flex items-center justify-center font-sans"
-    >
-        
-      {/* Hidden file input */}
+    /* Changed items-center to items-start md:items-center to prevent cutting off top on mobile scrolling */
+    <div className="relative flex items-start md:items-center justify-center min-h-screen font-inter p-4 pt-20 md:pt-4 overflow-x-hidden bg-gray-900">
+
+      {/* --- Quester Background --- */}
+      <div
+        className="absolute inset-0 bg-cover bg-center z-0"
+        style={{
+          backgroundImage: `url(${backgroundImage})`,
+          filter: "grayscale(50%) brightness(30%) blur(8px)",
+          transform: "scale(1.05)",
+        }}
+      ></div>
+
       <input
         type="file"
         ref={fileInputRef}
@@ -186,32 +249,33 @@ export default function Profile() {
         accept="image/*"
       />
 
-      <div className="w-full max-w-3xl">
-        {/* Main Card */}
+      <div className="relative z-10 w-full max-w-4xl my-auto">
+        {/* Main Card - Dark Glassmorphism */}
         <motion.div
           layout
-          className="w-full bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl overflow-hidden"
+          className="w-full bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
         >
           {/* Card Header with Edit/Cancel */}
-          <div className="p-6 flex justify-between items-center border-b border-gray-200/50">
-            <h1 className="text-2xl font-bold text-gray-800">
+          <div className="p-6 flex justify-between items-center border-b border-white/10">
+            <h1 className="text-xl md:text-2xl font-bold text-white">
               Account Settings
             </h1>
             {!isEditing ? (
               <button
                 onClick={handleStartEdit}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-colors text-sm"
+                className="flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 bg-white/10 text-gray-200 rounded-lg font-semibold hover:bg-white/20 transition-colors text-xs md:text-sm border border-white/5 whitespace-nowrap"
               >
-                <Edit3 className="w-4 h-4" />
-                Edit
+                <Edit3 className="w-3 h-3 md:w-4 md:h-4" />
+                <span className="hidden sm:inline">Edit Profile</span>
+                <span className="sm:hidden">Edit</span>
               </button>
             ) : (
               <button
                 onClick={handleCancelEdit}
-                disabled={isSaving} // Disable cancel while saving
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-colors text-sm disabled:opacity-50"
+                disabled={isSaving}
+                className="flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 bg-red-500/20 text-red-200 border border-red-500/30 rounded-lg font-semibold hover:bg-red-500/30 transition-colors text-xs md:text-sm disabled:opacity-50 whitespace-nowrap"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3 h-3 md:w-4 md:h-4" />
                 Cancel
               </button>
             )}
@@ -223,51 +287,46 @@ export default function Profile() {
               // EDIT MODE
               // ---
               <motion.form {...motionProps} onSubmit={handleSubmit}>
-                <div className="p-6 md:p-8 space-y-6">
+                <div className="p-6 md:p-8 space-y-8">
                   {/* Profile Pic Uploader & Handle */}
-                  <div className="flex items-center gap-6">
-                    <div className="relative">
+                  {/* Changed to flex-col on mobile, flex-row on desktop */}
+                  <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+                    <div className="relative group cursor-pointer flex-shrink-0" onClick={() => fileInputRef.current.click()}>
                       <img
-                        src={picPreview || user.profilePic.url}
+                        src={picPreview || reduxUser.profilePic?.url || "https://placehold.co/400x400"}
                         alt="Profile"
-                        className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md"
+                        className="w-24 h-24 md:w-28 md:h-28 rounded-full object-cover border-4 border-[#635348] shadow-xl transition-opacity group-hover:opacity-80"
                       />
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current.click()}
-                        className="absolute -bottom-2 -right-2 p-2 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-transform hover:scale-110"
-                      >
-                        <Camera className="w-4 h-4" />
-                      </button>
+                      <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Camera className="w-8 h-8 text-white" />
+                      </div>
                     </div>
-                    {/* Handle is now read-only here */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-600 mb-1">
+                    <div className="w-full text-center sm:text-left">
+                      <label className="block text-sm font-medium text-gray-400 mb-2">
                         Handle
                       </label>
-                      <p className="text-lg font-semibold text-gray-500 bg-gray-100 px-3 py-2 rounded-md">
-                        @{user.handle}
+                      <p className="text-base md:text-lg font-medium text-gray-300 bg-white/5 border border-white/10 px-4 py-2 rounded-lg inline-block max-w-full truncate">
+                        @{reduxUser._id}
                       </p>
                     </div>
                   </div>
 
                   {/* Editable Fields */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Name is now editable */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-600 mb-1">
+                      <label className="block text-sm font-medium text-gray-400 mb-2">
                         Full Name
                       </label>
                       <input
                         type="text"
                         name="name"
-                        value={formData.name}
+                        value={formData.name || ""}
                         onChange={handleChange}
-                        className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 bg-white"
+                        className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg focus:ring-2 focus:ring-yellow-800 focus:border-transparent text-white placeholder-gray-500 focus:outline-none transition-all"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-600 mb-1">
+                      <label className="block text-sm font-medium text-gray-400 mb-2">
                         Date of Birth
                       </label>
                       <input
@@ -275,33 +334,33 @@ export default function Profile() {
                         name="dob"
                         value={formatDateForInput(formData.dob)}
                         onChange={handleChange}
-                        className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 bg-white"
+                        className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg focus:ring-2 focus:ring-yellow-800 focus:border-transparent text-white placeholder-gray-500 focus:outline-none transition-all [color-scheme:dark]"
                       />
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-600 mb-1">
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-400 mb-2">
                         Gender
                       </label>
                       <select
                         name="gender"
                         value={formData.gender ? "Male" : "Female"}
                         onChange={handleChange}
-                        className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 bg-white"
+                        className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg focus:ring-2 focus:ring-yellow-800 focus:border-transparent text-white placeholder-gray-500 focus:outline-none transition-all appearance-none"
                       >
-                        <option>Female</option>
-                        <option>Male</option>
+                        <option className="bg-gray-800 text-white">Female</option>
+                        <option className="bg-gray-800 text-white">Male</option>
                       </select>
                     </div>
                   </div>
 
                   {/* Save Button */}
-                  <div className="pt-4">
+                  <div className="pt-4 flex justify-end">
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       type="submit"
-                      disabled={isSaving} // Disable button when saving
-                      className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-bold shadow-lg shadow-blue-500/30 hover:bg-blue-700 transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed"
+                      disabled={isSaving}
+                      className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-3 bg-[#635348] text-white rounded-lg font-bold shadow-lg hover:bg-[#52443a] transition-colors disabled:bg-[#4a3e36] disabled:cursor-not-allowed"
                     >
                       {isSaving ? (
                         <>
@@ -324,112 +383,162 @@ export default function Profile() {
               // ---
               <motion.div {...motionProps} className="p-6 md:p-8">
                 {/* Profile Header */}
-                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 sm:gap-8 mb-10">
                   <img
-                    src={user.profilePic.url}
+                    src={reduxUser.profilePic?.url || "https://placehold.co/400x400"}
                     alt="Profile"
-                    className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
+                    className="w-24 h-24 md:w-28 md:h-28 rounded-full object-cover border-4 border-[#635348] shadow-2xl flex-shrink-0"
                   />
-                  <div className="text-center sm:text-left pt-2">
-                    <div className="flex items-center gap-3">
-                      <h2 className="text-3xl font-bold text-gray-900">
-                        {user.name}
+                  <div className="text-center sm:text-left pt-2 min-w-0 w-full">
+                    <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3 mb-2 justify-center sm:justify-start flex-wrap">
+                      <h2 className="text-2xl md:text-3xl font-bold text-white break-words">
+                        {reduxUser.name}
                       </h2>
-                      {/* Conditional PRO badge */}
-                      {user.proAccount && (
-                        <span className="text-xs font-bold bg-gradient-to-r from-purple-500 to-blue-500 text-white px-2.5 py-1 rounded-full tracking-wider">
-                          PRO
-                        </span>
-                      )}
+                      <div className="flex gap-2 flex-shrink-0">
+                        {reduxUser.subscriptionStatus === 'premium' && (
+                          <span className="text-[10px] font-bold bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-3 py-1 rounded-full tracking-widest uppercase border border-white/10 shadow-lg">
+                            Premium
+                          </span>
+                        )}
+                        {reduxUser.subscriptionStatus === 'travel_pro' && (
+                          <span className="text-[10px] font-bold bg-gradient-to-r from-yellow-600 to-orange-600 text-white px-3 py-1 rounded-full tracking-widest uppercase border border-white/10 shadow-lg">
+                            Travel Pro
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-lg text-gray-500">@{user.handle}</p>
-                    <p className="text-sm text-gray-400 mt-2">
-                      Member since {formatDate(user.createdAt)}
+                    <p className="text-lg text-yellow-600/80 font-medium truncate">@{reduxUser.handle}</p>
+                    <p className="text-sm text-gray-500 mt-2">
+                      Member since {formatDate(reduxUser.createdAt)}
                     </p>
                   </div>
                 </div>
 
                 {/* Profile Details Sections */}
-                <div className="mt-8 space-y-8">
-                  <Section title="Profile">
-                    <ViewItem
-                      icon={<Mail className="w-5 h-5 text-gray-500" />}
-                      title="Email"
-                      value={user.email}
-                    />
-                    <ViewItem
-                      icon={<Calendar className="w-5 h-5 text-gray-500" />}
-                      title="Date of Birth"
-                      value={formatDate(user.dob)}
-                    />
-                    <ViewItem
-                      icon={
-                        user.gender ? (
-                          <Mars className="w-5 h-5 text-gray-500" />
-                        ) : (
-                          <Venus className="w-5 h-5 text-gray-500" />
-                        )
-                      }
-                      title="Gender"
-                      value={user.gender ? "Male" : "Female"}
-                    />
-                  </Section>
-
-                  <Section title="Security">
-                    <div className="flex w-full items-center justify-between">
-                        <ViewItem
-                      icon={<Lock className="w-5 h-5 text-gray-500" />}
-                      title="Password"
-                      value="••••••••••••"
-                    />
-                    <button
-                          onClick={handleUpgrade}
-                          className="mt-2 mr-4 sm:mt-0 h-1/1 flex items-center px-4 py-1 bg-gray-900 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl hover:bg-gray-700 transition-all"
-                        >
-                          
-                          Change Password
-                        </button>
+                <div className="space-y-8">
+                  <Section title="Personal Info">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <ViewItem
+                        icon={<Mail className="w-5 h-5 text-gray-400" />}
+                        title="Email"
+                        value={reduxUser.email}
+                      />
+                      <ViewItem
+                        icon={<Calendar className="w-5 h-5 text-gray-400" />}
+                        title="Date of Birth"
+                        value={formatDate(reduxUser.dob)}
+                      />
+                      <ViewItem
+                        icon={
+                          reduxUser.gender ? (
+                            <Mars className="w-5 h-5 text-gray-400" />
+                          ) : (
+                            <Venus className="w-5 h-5 text-gray-400" />
+                          )
+                        }
+                        title="Gender"
+                        value={reduxUser.gender ? "Male" : "Female"}
+                      />
                     </div>
-                    
                   </Section>
 
-                  {/* Account Plan Section */}
-                  <Section title="Account Plan">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-white/50 rounded-lg">
-                      <div>
-                        <p className="text-sm font-medium text-gray-500">
-                          Current Plan
-                        </p>
-                        <p className="text-lg font-semibold text-gray-900">
-                          {user.proAccount ? "Pro" : "Standard"}
-                        </p>
+                  <Section title="Security & Plan">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                      {/* Security / Sign-in Method Card */}
+                      <div className="flex flex-col xs:flex-row items-start xs:items-center justify-between p-4 bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 transition-colors gap-4">
+                        <div className="flex items-center min-w-0">
+                          <div className="p-2 bg-white/5 rounded-lg mr-4 flex-shrink-0">
+                            <Lock className="w-5 h-5 text-gray-400" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-500">Sign-in Method</p>
+                            <p className="text-base md:text-lg font-semibold text-white truncate">
+                              {/* Use authProvider to determine the label */}
+                              {reduxUser.authProvider === 'email' ? "Email & Password" : "Google Account"}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Only show Update Password button if the provider is 'email' */}
+                        {reduxUser.authProvider === 'email' && (
+                          <button
+                            onClick={handleResetPassword}
+                            className="w-full xs:w-auto text-xs font-medium bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg transition-all border border-white/5 whitespace-nowrap"
+                          >
+                            Update Password
+                          </button>
+                        )}
                       </div>
-                      {!user.proAccount && (
-                        <button
-                          onClick={handleUpgrade}
-                          className="mt-4 sm:mt-0 flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all"
-                        >
-                          <Sparkles className="w-4 h-4" />
-                          Upgrade to Pro
-                        </button>
-                      )}
+
+                      {/* Plan Card */}
+                      <div className="flex items-center justify-between p-4 bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 transition-colors">
+                        <div className="flex items-center">
+                          <div className="p-2 bg-white/5 rounded-lg mr-4 flex-shrink-0">
+                            <Sparkles className="w-5 h-5 text-yellow-600" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-500">Current Plan</p>
+                            <p className="text-base md:text-lg font-semibold text-white capitalize">{reduxUser.subscriptionStatus || "Normal"}</p>
+                          </div>
+                        </div>
+                        {reduxUser.subscriptionStatus === 'normal' && (
+                          <button onClick={handleUpgrade} className="text-xs bg-[#635348] hover:bg-[#52443a] text-white px-3 py-2 rounded-lg transition-colors shadow-lg whitespace-nowrap ml-2">
+                            Upgrade
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </Section>
 
                   <Section title="My Trips">
                     {trips.length === 0 ? (
-                      <div className="text-gray-500">No trips yet. <a className="underline" href="/create">Create one</a>.</div>
+                      <div className="text-gray-400 italic bg-white/5 p-6 rounded-xl border border-white/5 text-center">
+                        No trips yet. <a className="text-yellow-600 hover:underline ml-1" href="/create">Start your first quest</a>.
+                      </div>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {trips.map(t => (
-                          <a key={t._id} href={`/planner/${t._id}`} className="p-4 rounded-lg border bg-white hover:shadow">
-                            <div className="text-sm text-gray-500">{t.city}</div>
-                            <div className="font-semibold">{t.title}</div>
+                          <a key={t._id} href={`/planner/${t._id}`} className="block group min-w-0">
+                            <div className="p-5 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 transition-all duration-300 flex justify-between items-center gap-4">
+                              <div className="min-w-0">
+                                <div className="text-xs text-yellow-600/80 font-medium tracking-wide mb-1 uppercase truncate">{t.city}</div>
+                                <div className="font-bold text-white text-lg group-hover:text-yellow-500 transition-colors truncate">{t.title}</div>
+                              </div>
+                              <div className="bg-white/5 p-2 rounded-full group-hover:bg-white/20 transition-colors flex-shrink-0">
+                                <Edit3 className="w-4 h-4 text-gray-400" />
+                              </div>
+                            </div>
                           </a>
                         ))}
                       </div>
                     )}
                   </Section>
+
+                  <div className="pt-8 border-t border-white/10">
+                    <Section title="Danger Zone">
+                      <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div className="flex gap-4 w-full sm:w-auto">
+                          <div className="p-3 bg-red-500/20 rounded-lg h-fit flex-shrink-0">
+                            <AlertTriangle className="w-6 h-6 text-red-400" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h4 className="font-bold text-red-200">Delete Account</h4>
+                            <p className="text-sm text-red-400/80 mt-1 break-words">Once you delete your account, there is no going back. Please be certain.</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleDeleteAccount}
+                          disabled={isDeleting}
+                          className="w-full sm:w-auto px-5 py-2.5 bg-red-600/80 text-white rounded-lg font-semibold hover:bg-red-600 transition-colors shadow-lg whitespace-nowrap disabled:bg-red-900/50 disabled:cursor-not-allowed flex items-center justify-center gap-2 flex-shrink-0"
+                        >
+                          {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                          Delete Account
+                        </button>
+                      </div>
+                    </Section>
+                  </div>
+
                 </div>
               </motion.div>
             )}
@@ -437,30 +546,29 @@ export default function Profile() {
         </motion.div>
       </div>
     </div>
-    </div>
   );
 }
 
-// --- Helper Components ---
+// --- Helper Components (Styled) ---
 
-// New Section component for better organization
 const Section = ({ title, children }) => (
   <div className="space-y-4">
-    <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest pl-1">
       {title}
     </h3>
     <div className="space-y-4">{children}</div>
   </div>
 );
 
-// Renamed from InfoItem to ViewItem
+// Updated ViewItem to handle long text (email/ids) without breaking layout
 const ViewItem = ({ icon, title, value }) => (
-  <div className="flex items-center p-4 bg-white/50 rounded-lg">
-    <div className="flex-shrink-0 w-10 text-gray-500">{icon}</div>
-    <div className="ml-4">
+  <div className="flex items-center p-4 bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 transition-colors min-w-0">
+    <div className="flex-shrink-0 w-10 flex justify-center items-center p-2 bg-white/5 rounded-lg mr-4">
+      {icon}
+    </div>
+    <div className="min-w-0 flex-1">
       <p className="text-sm font-medium text-gray-500">{title}</p>
-      <p className="text-lg font-semibold text-gray-900">{value}</p>
+      <p className="text-base md:text-lg font-semibold text-white break-all truncate">{value}</p>
     </div>
   </div>
 );
-

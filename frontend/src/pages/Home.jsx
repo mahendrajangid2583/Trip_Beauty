@@ -1,5 +1,6 @@
 import React from 'react'
-import Navbar from '../components/Navbar'
+import Navbar from '../components/Navbar';
+
 import SearchPage from '../components/home/SearchPage';
 import HomeSearchBar from '../components/home/HomeSearchBar';
 import ReviewSection from '../components/home/ReviewSection';
@@ -10,6 +11,7 @@ import { useState } from 'react';
 const Home = () => {
    const [isSearchPageOpen, setIsSearchPageOpen] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
+ 
 
   const handleSearchClick = () => {
     setIsTransitioning(true);
@@ -32,7 +34,7 @@ const Home = () => {
       isTransitioning ? 'bg-white transition-colors duration-300 ease-out' : 'bg-gradient-to-br from-blue-50 to-purple-50'
     }`}>
       {/* Simplified CSS animations */}
-      <style jsx>{`
+      {/* <style jsx>{`
         .animate-fade-in {
           animation: fadeIn 0.3s ease-out forwards;
         }
@@ -56,7 +58,7 @@ const Home = () => {
             transform: translateY(0);
           }
         }
-      `}</style>
+      `}</style> */}
       
       {/* Hero Section with Search */}
       <div className={`relative px-6 will-change-transform transition-all duration-300 ease-out ${
