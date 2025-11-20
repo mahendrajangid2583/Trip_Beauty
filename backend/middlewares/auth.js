@@ -1,11 +1,12 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
-
+import passport from 'passport'
+// const protect=passport.authenticate('jwt',{session:false});
 const protect = async (req, res, next) => {
+    console.log("running protect...");
      const token =
       req.cookies?.token ||
-      (req.headers.authorization?.startsWith("Bearer ")
-        ? req.headers.authorization.split(" ")[1]
+      (req.headers.authorization?.startsWith("Bearer ")? req.headers.authorization.split(" ")[1]
         : null);
 
     if (!token) return res.status(401).json({ message: "Not authorized, token missing" });
