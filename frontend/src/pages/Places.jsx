@@ -4,8 +4,7 @@ import { MapPin, ArrowLeft, Navigation, Filter, Image as ImageIcon, ChevronLeft,
 import { useDispatch, useSelector } from 'react-redux';
 import { togglePlace } from '../store/selectedPlacesSlice.js';
 import { selectSelectedPlaces } from '../store/index.js';
-
-const API_BASE_URL = 'http://localhost:5000/api';
+import api from '../services/api';
 
 // Image Carousel Component
 const ImageCarousel = ({ images, placeName }) => {
@@ -117,15 +116,11 @@ const Places = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/cities/places?lat=${lat}&lon=${lon}&radius=50000&limit=10`
+      const response = await api.get(
+        `/api/cities/places?lat=${lat}&lon=${lon}&radius=50000&limit=10`
       );
       
-      if (!response.ok) {
-        throw new Error('Failed to fetch places');
-      }
-      
-      const data = await response.json();
+      const data = response.data;
       setPlaces(data.places || data || []);
     } catch (error) {
       console.error('Error fetching places:', error);
@@ -168,13 +163,8 @@ const Places = () => {
                   <button
                     onClick={async () => {
                       try {
-                        const response = await fetch(`${API_BASE_URL}/plan-trip`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ city: cityName, places: selectedPlaces }),
-                        });
-                        if (!response.ok) throw new Error('Failed to create trip plan');
-                        const data = await response.json();
+                        const response = await api.post(`/api/plan-trip`, { city: cityName, places: selectedPlaces });
+                        const data = response.data;
                         // persist for fallback and navigate
                         localStorage.setItem('tripPlan', JSON.stringify(data));
                         navigate('/trip-planner', { state: { trip: data } });
@@ -344,4 +334,3 @@ const PlaceCard = ({ place }) => {
 };
 
 export default Places;
-

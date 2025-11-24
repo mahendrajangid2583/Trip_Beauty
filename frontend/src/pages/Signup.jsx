@@ -3,8 +3,9 @@ import React, { useState, useReducer, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mail, Lock, Eye, EyeOff, Hash } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { useDispatch } from "react-redux"; // ✅ Import Redux useDispatch
-import { loginSuccess } from "../store/userSlice"; // ✅ Import your Redux action
+import { useDispatch } from "react-redux";
+import { loginSuccess } from "../store/userSlice";
+import api, { BASE_URL } from "../services/api";
 
 // --- Google Icon SVG ---
 const GoogleIcon = (props) => (
@@ -16,7 +17,7 @@ const GoogleIcon = (props) => (
   </svg>
 );
 
-// --- Reducer for state management (EXPANDED) ---
+// --- Reducer for state management ---
 const authReducer = (state, action) => {
   switch (action.type) {
     case "SIGNUP_START":
@@ -39,7 +40,6 @@ const initialState = { isLoading: false, error: null };
 
 // --- Carousel items ---
 const carouselItems = [
-  // ... (carousel items unchanged) ...
   {
     image: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80",
     fact: "Men who take regular vacations are 32% less likely to die from heart disease.",
@@ -64,9 +64,8 @@ const carouselItems = [
 
 export default function Signup() {
   const navigate = useNavigate();
-  const reduxDispatch = useDispatch(); // ✅ Get Redux dispatch function
+  const reduxDispatch = useDispatch();
   
-  // --- ✅ MODIFIED: Removed 'name' from state ---
   const [formData, setFormData] = useState({ email: "", password: "", confirmPassword: "" });
   
   const [showPassword, setShowPassword] = useState(false);
@@ -97,13 +96,10 @@ export default function Signup() {
   const validate = () => {
     const newErrors = {};
     
-    // --- ✅ MODIFIED: Removed 'name' validation ---
-    
     if (!formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
       newErrors.email = "Please enter a valid email address.";
     }
 
-    // --- ✅ MODIFIED: Updated Regex and Error Message ---
     if (
       !formData.password.match(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,16}$/)
     ) {
@@ -124,21 +120,10 @@ export default function Signup() {
     dispatch({ type: "SIGNUP_START" });
 
     try {
-      const response = await fetch("http://localhost:5000/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          // --- ✅ MODIFIED: Removed 'name' from body ---
+      await api.post("/api/auth/register", {
           email: formData.email,
           password: formData.password,
-        }),
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Signup failed.");
-      }
 
       dispatch({ type: "SIGNUP_SUCCESS" });
       
@@ -146,7 +131,7 @@ export default function Signup() {
       setView('verify'); 
 
     } catch (err) {
-      dispatch({ type: "SIGNUP_FAILURE", payload: err.message });
+      dispatch({ type: "SIGNUP_FAILURE", payload: err.response?.data?.message || err.message });
     }
   };
 
@@ -161,20 +146,12 @@ export default function Signup() {
     }
 
     try {
-        const response = await fetch("http://localhost:5000/api/auth/verify-email", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                email: formData.email, // Use the email from state
-                otp: otp,
-            }),
+        const response = await api.post("/api/auth/verify-email", {
+            email: formData.email,
+            otp: otp,
         });
 
-        const data = await response.json(); // This should contain { user: {...} }
-
-        if (!response.ok) {
-            throw new Error(data.message || "OTP verification failed.");
-        }
+        const data = response.data;
 
         dispatch({ type: "VERIFY_SUCCESS" });
         
@@ -183,7 +160,7 @@ export default function Signup() {
         navigate("/"); // Redirect to home/dashboard
 
     } catch (err) {
-        dispatch({ type: "VERIFY_FAILURE", payload: err.message });
+        dispatch({ type: "VERIFY_FAILURE", payload: err.response?.data?.message || err.message });
     }
   };
 
@@ -191,24 +168,15 @@ export default function Signup() {
   const handleResendOtp = async () => {
     dispatch({ type: "VERIFY_START" }); // Show loading spinner
     try {
-        const response = await fetch("http://localhost:5000/api/auth/resend-verification", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: formData.email }),
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message);
+        await api.post("/api/auth/resend-verification", { email: formData.email });
         dispatch({ type: "SIGNUP_SUCCESS" }); // Re-use success to stop loading
     } catch (err) {
-        dispatch({ type: "VERIFY_FAILURE", payload: err.message });
+        dispatch({ type: "VERIFY_FAILURE", payload: err.response?.data?.message || err.message });
     }
   }
 
   const handleGoogleSignup = () => {
-    // This is correct. It sends the user to your backend to start
-    // the OAuth flow. The backend handles the redirect back to
-    // your app after success.
-    window.location.href = "http://localhost:5000/api/auth/google";
+    window.location.href = `${BASE_URL}/api/auth/google`;
   };
 
   const backgroundImage =
@@ -235,48 +203,47 @@ export default function Signup() {
         <div className="grid grid-cols-1 md:grid-cols-2">
           {/* Left carousel */}
           <div className="relative h-64 md:h-full min-h-[500px] overflow-hidden">
-             {/* ... (carousel code unchanged) ... */}
              <div className="absolute top-0 left-0 p-8 z-10">
-      <h1 className="text-4xl font-bold text-white" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
-       Quester
-      </h1>
-     </div>
-   <AnimatePresence>
-     <motion.div
-       key={currentSlide}
-       initial={{ opacity: 0, scale: 1.05 }}
-       animate={{ opacity: 1, scale: 1 }}
-       exit={{ opacity: 0, scale: 1.05 }}
-       transition={{ duration: 2, ease: "easeInOut" }}
-       className="absolute inset-0 bg-cover bg-center"
-       style={{ backgroundImage: `url(${carouselItems[currentSlide].image})` }}
-      />
-   </AnimatePresence>
-   <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-   <div className="absolute bottom-0 left-0 p-8 text-white">
-     <AnimatePresence mode="wait">
-       <motion.p
-         key={currentSlide}
-         initial={{ opacity: 0, y: 20 }}
-         animate={{ opacity: 1, y: 0 }}
-         transition={{ duration: 0.5, delay: 0.3, ease: "easeOut" }}
-         className="text-xl font-medium mb-4"
-       >
-         {carouselItems[currentSlide].fact}
-       </motion.p>
-     </AnimatePresence>
-     <div className="flex space-x-2">
-       {carouselItems.map((_, index) => (
-         <button
-           key={index}
-           onClick={() => setCurrentSlide(index)}
-           className={`w-2 h-2 rounded-full ${
-             index === currentSlide ? "bg-white scale-125" : "bg-white/50"
-           } transition-all duration-300`}
-          />
-       ))}
-     </div>
-   </div>
+              <h1 className="text-4xl font-bold text-white" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+               Quester
+              </h1>
+             </div>
+           <AnimatePresence>
+             <motion.div
+               key={currentSlide}
+               initial={{ opacity: 0, scale: 1.05 }}
+               animate={{ opacity: 1, scale: 1 }}
+               exit={{ opacity: 0, scale: 1.05 }}
+               transition={{ duration: 2, ease: "easeInOut" }}
+               className="absolute inset-0 bg-cover bg-center"
+               style={{ backgroundImage: `url(${carouselItems[currentSlide].image})` }}
+              />
+           </AnimatePresence>
+           <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+           <div className="absolute bottom-0 left-0 p-8 text-white">
+             <AnimatePresence mode="wait">
+               <motion.p
+                 key={currentSlide}
+                 initial={{ opacity: 0, y: 20 }}
+                 animate={{ opacity: 1, y: 0 }}
+                 transition={{ duration: 0.5, delay: 0.3, ease: "easeOut" }}
+                 className="text-xl font-medium mb-4"
+               >
+                 {carouselItems[currentSlide].fact}
+               </motion.p>
+             </AnimatePresence>
+             <div className="flex space-x-2">
+               {carouselItems.map((_, index) => (
+                 <button
+                   key={index}
+                   onClick={() => setCurrentSlide(index)}
+                   className={`w-2 h-2 rounded-full ${
+                     index === currentSlide ? "bg-white scale-125" : "bg-white/50"
+                   } transition-all duration-300`}
+                  />
+               ))}
+             </div>
+           </div>
           </div>
 
           {/* Right: Form Area */}
@@ -305,10 +272,7 @@ export default function Signup() {
 
                 <form onSubmit={handleSubmit} className="space-y-5">
                   
-                  {/* --- ✅ MODIFIED: 'name' field removed --- */}
-                  
                   {/* email */}
-                  {/* --- ✅ MODIFIED: Wrapped in <div>, error moved out --- */}
                   <div>
                     <div className="relative">
                       <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -328,7 +292,6 @@ export default function Signup() {
                   </div>
 
                   {/* password */}
-                  {/* --- ✅ MODIFIED: Wrapped in <div>, error moved out --- */}
                   <div>
                     <div className="relative">
                       <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -356,7 +319,6 @@ export default function Signup() {
                   </div>
 
                   {/* confirm password */}
-                  {/* --- ✅ MODIFIED: Wrapped in <div>, error moved out --- */}
                   <div>
                     <div className="relative">
                       <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />

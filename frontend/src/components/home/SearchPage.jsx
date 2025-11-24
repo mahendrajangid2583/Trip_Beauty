@@ -2,8 +2,7 @@ import React from 'react'
 import { useState,useEffect,useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, MapPin, Clock, TrendingUp, X, Filter, Star, Calendar, Users } from 'lucide-react';
-
-const API_BASE_URL = 'http://localhost:5000/api';
+import api from '../../services/api';
 
 const SearchPage = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
@@ -36,13 +35,8 @@ const SearchPage = ({ isOpen, onClose }) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/cities/search?query=${encodeURIComponent(query)}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch cities');
-      }
-      console.log(response);
-      const data = await response.json();
-      setSearchResults(data);
+      const response = await api.get(`/api/cities/search?query=${encodeURIComponent(query)}`);
+      setSearchResults(response.data);
     } catch (error) {
       console.error('Error searching cities:', error);
       setError('Failed to search cities. Please try again.');

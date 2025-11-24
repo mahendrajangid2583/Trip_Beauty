@@ -15,7 +15,7 @@ const userSchema = new mongoose.Schema(
     // Password is NOT required, as a user might sign in via Google
     password: {
       type: String,
-     // select: false, // Don't return password in queries by default
+      // select: false, // Don't return password in queries by default
     },
     // Tracks how the user signed up
     authProvider: {
@@ -81,14 +81,24 @@ const userSchema = new mongoose.Schema(
     // Token/OTP sent to the user's email
     emailVerificationToken: {
       type: String,
-     // select: false, // Hide from default queries
+      // select: false, // Hide from default queries
     },
     // Expiry time for the token
     emailVerificationTokenExpiry: {
       type: Date,
-     // select: false, // Hide from default queries
+      // select: false, // Hide from default queries
     },
-    
+    // --- Bookmarks ---
+    bookmarks: [{
+      id: { type: String }, // External ID (e.g., from Geoapify or Wiki)
+      name: { type: String, required: true },
+      lat: { type: Number, required: true },
+      lng: { type: Number, required: true },
+      image: { type: String },
+      description: { type: String },
+      source: { type: String, enum: ['wikipedia', 'geoapify', 'manual'], default: 'manual' },
+      addedAt: { type: Date, default: Date.now }
+    }],
   },
   {
     timestamps: true,

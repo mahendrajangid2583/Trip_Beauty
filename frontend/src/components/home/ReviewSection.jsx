@@ -1,5 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Star, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useSelector } from 'react-redux';
+import { api } from '../../utils/api';
+import toast from 'react-hot-toast';
 
 const ReviewSection = () => {
   const [showModal, setShowModal] = useState(false);
@@ -7,79 +10,30 @@ const ReviewSection = () => {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
   
-  const [reviews, setReviews] = useState([
-    {
-      id: 1,
-      name: "Nadia",
-      role: "Travel Blogger @Couple Travel",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Nadia",
-      rating: 5,
-      review: "Planning your trip by having all the attractions already plugged into a map makes trip planning so much easier."
-    },
-    {
-      id: 2,
-      name: "Sharon Brewster",
-      role: "Explorer",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sharon",
-      rating: 5,
-      review: "amazing app! easy to use, love the AI functionality."
-    },
-    {
-      id: 3,
-      name: "Jayson Oite",
-      role: "Adventure Seeker",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Jayson",
-      rating: 5,
-      review: "It seems to be this is my new travel app buddy. Very handy, convenient and very easy to use. It also recommends tourist destinations and nearby places. Kudos to the programmer. 👏 👏 👏 👏"
-    },
-    {
-      id: 4,
-      name: "Belinda and Kathy Kohles",
-      role: "Travel Enthusiasts",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Belinda",
-      rating: 5,
-      review: "I have used several trip planning apps. This one by far is the best. The interaction between google maps makes the planning so much easier. Adding an adventure not in the app is also easy. Love the app!"
-    },
-    {
-      id: 5,
-      name: "Lydia Yang",
-      role: "Founder @LydiaScapes Adventures",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Lydia",
-      rating: 5,
-      review: "So much easier to visualize and plan a road trip to my favourite rock climbing destinations and explore the area around."
-    },
-    {
-      id: 6,
-      name: "Erica Franco",
-      role: "Travel Planner",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Erica",
-      rating: 5,
-      review: "Absolutely love this app! It is so helpful when planning my trips. I especially love The optimize route option. When I have all my information in place like my starting point to my ending point it is fabulous!"
-    },
-    {
-      id: 7,
-      name: "Jorge D.",
-      role: "Digital Nomad",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Jorge",
-      rating: 5,
-      review: "It left me speechless that I can add places to my trip and they get automatically populated with a featured pic and description from the web."
-    },
-    {
-      id: 8,
-      name: "A. Rosa",
-      role: "Adventurer",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Rosa",
-      rating: 5,
-      review: "Great for planning multi-city trips! The interface is intuitive and saves so much time."
-    }
-  ]);
+  // Get user from Redux
+  const { user } = useSelector((state) => state.user);
+  
+  // Fetch reviews from backend
+  const [reviews, setReviews] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
-    name: '',
-    role: '',
     rating: 5,
     review: ''
   });
+
+  // Fetch reviews on component mount
+  useEffect(() => {
+    const fetchReviews = async () => {
+      try {
+        const data = await api.getReviews();
+        if (data) setReviews(data);
+      } catch (error) {
+        console.error('Failed to fetch reviews:', error);
+      }
+    };
+    fetchReviews();
+  }, []);
 
   const checkScrollButtons = () => {
     if (scrollContainerRef.current) {
@@ -108,23 +62,32 @@ const ReviewSection = () => {
     }
   };
 
-  const handleSubmit = () => {
-    if (!formData.name || !formData.role || !formData.review) {
-      alert('Please fill in all fields');
+  const handleSubmit = async () => {
+    if (!user) {
+      toast.error('Please log in to submit a review');
+      return;
+    }
+
+    if (!formData.review) {
+      toast.error('Please write a review');
       return;
     }
     
-    const newReview = {
-      id: reviews.length + 1,
-      name: formData.name,
-      role: formData.role,
-      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${formData.name}`,
-      rating: formData.rating,
-      review: formData.review
-    };
-    setReviews([newReview, ...reviews]);
-    setFormData({ name: '', role: '', rating: 5, review: '' });
-    setShowModal(false);
+    setIsSubmitting(true);
+    try {
+      await api.submitReview(formData);
+      toast.success('Thank you for your review!');
+      setFormData({ rating: 5, review: '' });
+      setShowModal(false);
+      
+      // Refresh reviews
+      const data = await api.getReviews();
+      if (data) setReviews(data);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to submit review');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const StarRating = ({ rating, size = 'small', interactive = false, onRate = null }) => {
@@ -149,10 +112,10 @@ const ReviewSection = () => {
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-            What travelers are raving about
+            What travelers are saying
           </h1>
           <p className="text-xl text-gray-600 mb-8">
-            Over 1 million people have already tried Wanderlog and loved its easy trip planning features.
+            Join our community of explorers and share your experience.
           </p>
           <button
             onClick={() => setShowModal(true)}
@@ -163,62 +126,66 @@ const ReviewSection = () => {
         </div>
 
         {/* Reviews Carousel */}
-        <div className="relative">
-          {/* Left Arrow */}
-          {canScrollLeft && (
-            <button
-              onClick={() => scroll('left')}
-              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 bg-white rounded-full p-3 shadow-lg hover:shadow-xl transition-all hover:scale-110"
-            >
-              <ChevronLeft className="w-6 h-6 text-gray-700" />
-            </button>
-          )}
-
-          {/* Scrollable Container */}
-          <div
-            ref={scrollContainerRef}
-            className="flex gap-6 overflow-x-auto scrollbar-hide pb-4"
-            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-          >
-            {reviews.map((review) => (
-              <div
-                key={review.id}
-                className="bg-white rounded-xl p-6 shadow-md hover:shadow-lg transition-shadow flex-shrink-0 w-80"
+        {reviews.length > 0 ? (
+          <div className="relative">
+            {/* Left Arrow */}
+            {canScrollLeft && (
+              <button
+                onClick={() => scroll('left')}
+                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 bg-white rounded-full p-3 shadow-lg hover:shadow-xl transition-all hover:scale-110"
               >
-                {/* User Info */}
-                <div className="flex items-start gap-3 mb-4">
-                  <img
-                    src={review.avatar}
-                    alt={review.name}
-                    className="w-12 h-12 rounded-full"
-                  />
-                  <div className="flex-1">
-                    <h3 className="font-bold text-gray-900">{review.name}</h3>
-                    <p className="text-sm text-gray-500 line-clamp-1">{review.role}</p>
-                  </div>
-                </div>
+                <ChevronLeft className="w-6 h-6 text-gray-700" />
+              </button>
+            )}
 
-                {/* Rating */}
-                <div className="mb-3">
-                  <StarRating rating={review.rating} />
-                </div>
-
-                {/* Review Text */}
-                <p className="text-gray-700 leading-relaxed">{review.review}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Right Arrow */}
-          {canScrollRight && (
-            <button
-              onClick={() => scroll('right')}
-              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 bg-white rounded-full p-3 shadow-lg hover:shadow-xl transition-all hover:scale-110"
+            {/* Scrollable Container */}
+            <div
+              ref={scrollContainerRef}
+              className="flex gap-6 overflow-x-auto scrollbar-hide pb-4"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
-              <ChevronRight className="w-6 h-6 text-gray-700" />
-            </button>
-          )}
-        </div>
+              {reviews.map((review) => (
+                <div
+                  key={review._id}
+                  className="bg-white rounded-xl p-6 shadow-md hover:shadow-lg transition-shadow flex-shrink-0 w-80"
+                >
+                  {/* User Info */}
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold text-xl">
+                      {review.user?.name?.charAt(0)?.toUpperCase() || 'T'}
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-bold text-gray-900">{review.user?.name || 'Traveler'}</h3>
+                      <p className="text-sm text-gray-500">Verified User</p>
+                    </div>
+                  </div>
+
+                  {/* Rating */}
+                  <div className="mb-3">
+                    <StarRating rating={review.rating} />
+                  </div>
+
+                  {/* Review Text */}
+                  <p className="text-gray-700 leading-relaxed">{review.comment}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Right Arrow */}
+            {canScrollRight && (
+              <button
+                onClick={() => scroll('right')}
+                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 bg-white rounded-full p-3 shadow-lg hover:shadow-xl transition-all hover:scale-110"
+              >
+                <ChevronRight className="w-6 h-6 text-gray-700" />
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-12 bg-white rounded-xl shadow-md">
+            <p className="text-gray-500 text-lg">No reviews yet. Be the first to share your experience!</p>
+          </div>
+        )}
 
         {/* Modal */}
         {showModal && (
@@ -233,65 +200,55 @@ const ReviewSection = () => {
 
               <h2 className="text-2xl font-bold text-gray-900 mb-6">Write Your Review</h2>
 
-              <div className="space-y-5">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Your Name
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter your name"
-                  />
+              {!user ? (
+                <div className="text-center py-6">
+                  <p className="text-gray-600 mb-4">Please log in to submit a review</p>
+                  <button
+                    onClick={() => {
+                      setShowModal(false);
+                      window.location.href = '/login';
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-lg transition-colors"
+                  >
+                    Log In
+                  </button>
                 </div>
+              ) : (
+                <div className="space-y-5">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Rating
+                    </label>
+                    <StarRating
+                      rating={formData.rating}
+                      size="large"
+                      interactive={true}
+                      onRate={(rating) => setFormData({ ...formData, rating })}
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Role / Title
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="e.g., Travel Blogger, Explorer"
-                  />
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Your Review
+                    </label>
+                    <textarea
+                      value={formData.review}
+                      onChange={(e) => setFormData({ ...formData, review: e.target.value })}
+                      rows="4"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                      placeholder="Share your experience..."
+                    />
+                  </div>
+
+                  <button
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmitting ? 'Submitting...' : 'Submit Review'}
+                  </button>
                 </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Rating
-                  </label>
-                  <StarRating
-                    rating={formData.rating}
-                    size="large"
-                    interactive={true}
-                    onRate={(rating) => setFormData({ ...formData, rating })}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Your Review
-                  </label>
-                  <textarea
-                    value={formData.review}
-                    onChange={(e) => setFormData({ ...formData, review: e.target.value })}
-                    rows="4"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                    placeholder="Share your experience..."
-                  />
-                </div>
-
-                <button
-                  onClick={handleSubmit}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors"
-                >
-                  Submit Review
-                </button>
-              </div>
+              )}
             </div>
           </div>
         )}
