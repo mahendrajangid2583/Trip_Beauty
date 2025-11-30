@@ -2,9 +2,9 @@ import React, { useState, useReducer, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { loginSuccess } from "../store/userSlice";
+import api, { BASE_URL } from "../services/api";
 
-// --- ICONS (from your code) ---
-// Placeholder for Eye icon
+// --- ICONS ---
 const Eye = ({ size = 20, ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -23,7 +23,6 @@ const Eye = ({ size = 20, ...props }) => (
   </svg>
 );
 
-// Placeholder for EyeOff icon
 const EyeOff = ({ size = 20, ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -44,8 +43,6 @@ const EyeOff = ({ size = 20, ...props }) => (
   </svg>
 );
 
-// --- NEW ICON STUB ---
-// Placeholder for Google Icon
 const GoogleIcon = (props) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -73,38 +70,22 @@ const GoogleIcon = (props) => (
   </svg>
 );
 
-// --- State Management (from your code) ---
+// --- State Management ---
 const loginReducer = (state, action) => {
   switch (action.type) {
     case "LOGIN_START":
-      return {
-        ...state,
-        isLoading: true,
-        error: null,
-      };
+      return { ...state, isLoading: true, error: null };
     case "LOGIN_SUCCESS":
-      return {
-        ...state,
-        isLoading: false,
-        error: null,
-      };
+      return { ...state, isLoading: false, error: null };
     case "LOGIN_FAILURE":
-      return {
-        ...state,
-        isLoading: false,
-        error: action.payload,
-      };
+      return { ...state, isLoading: false, error: action.payload };
     default:
       return state;
   }
 };
 
-const initialState = {
-  isLoading: false,
-  error: null,
-};
+const initialState = { isLoading: false, error: null };
 
-// --- The Premium Login Component ---
 const Login = () => {
   const navigate = useNavigate();
   const reduxDispatch = useDispatch();
@@ -127,25 +108,16 @@ const Login = () => {
     localDispatch({ type: "LOGIN_START" });
 
     try {
-      const res = await fetch("http://localhost:5000/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(form),
-      });
+      const response = await api.post("/api/auth/login", form);
+      const data = response.data;
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Login failed");
-
-      // Server sets httpOnly cookie. Update redux state with returned user (if provided)
       if (data?.user) {
         reduxDispatch(loginSuccess({ user: data.user }));
       } else {
-        // fallback: fetch /me to get user
         try {
-          const meRes = await fetch("http://localhost:5000/api/auth/me", { credentials: "include" });
-          const meData = await meRes.json();
-          if (meRes.ok && meData?.user) reduxDispatch(loginSuccess({ user: meData.user }));
+          const meRes = await api.get("/api/auth/me");
+          const meData = meRes.data;
+          if (meData?.user) reduxDispatch(loginSuccess({ user: meData.user }));
         } catch (err) {
           console.warn("Failed to fetch current user after login", err);
         }
@@ -155,60 +127,49 @@ const Login = () => {
       navigate("/profile", { replace: true });
 
     } catch (err) {
-      localDispatch({ type: "LOGIN_FAILURE", payload: err.message });
+      localDispatch({ type: "LOGIN_FAILURE", payload: err.response?.data?.message || err.message });
     }
   };
 
   const backgroundImage = "https://res.cloudinary.com/dxif9sbfw/image/upload/v1762286308/mountain-with-cliff_1_izaugd.jpg";
 
   return (
-    // Main container with full-page background image
     <div className="relative flex items-center justify-center min-h-screen font-inter p-4 overflow-hidden">
-      {/* Immersive Background Image */}
       <div
         className="absolute inset-0 bg-cover bg-center transition-all duration-300"
         style={{
           backgroundImage: `url(${backgroundImage})`,
-          filter: 'grayscale(50%) brightness(30%) blur(8px)', // Darker, blurrier background
-          transform: 'scale(1.05)' // Slightly scale up to hide blur edges
+          filter: 'grayscale(50%) brightness(30%) blur(8px)',
+          transform: 'scale(1.05)'
         }}
       ></div>
 
-      {/* Main Login Card Container */}
       <div className="relative z-10 flex flex-col md:flex-row w-full max-w-6xl bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-sm dark:backdrop-blur-none">
         
-        {/* Left Section (Branding with Focused Image) */}
         <div className="md:w-1/2 w-full relative min-h-[300px] md:min-h-auto">
-          {/* Focused Background Image for the left panel */}
           <img
             src={backgroundImage}
             alt="Abstract adventure landscape"
             className="absolute inset-0 w-full h-full object-cover brightness-75"
           />
-          {/* Overlay content */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent p-10 md:p-16 flex flex-col justify-between text-white">
-            {/* Logo / Brand Name */}
             <h1 className="text-4xl font-extrabold tracking-tight text-white z-10">
               Quester.
             </h1>
             <div>
-              
-            {/* Tagline on image - Minimalist style */}
-            <div className="relative z-10 mb-6">
-              <p className="font-serif text-2xl md:text-3xl font-light italic leading-snug tracking-wide opacity-90 drop-shadow-md">
-                Continue your quest...
-              </p>
-            </div>
-            
-            <div className="text-gray-300 text-sm z-10">
-              &copy; {new Date().getFullYear()} Quester. All rights reserved.
-            </div>
+              <div className="relative z-10 mb-6">
+                <p className="font-serif text-2xl md:text-3xl font-light italic leading-snug tracking-wide opacity-90 drop-shadow-md">
+                  Continue your quest...
+                </p>
+              </div>
+              <div className="text-gray-300 text-sm z-10">
+                &copy; {new Date().getFullYear()} Quester. All rights reserved.
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Right Section (Login Form) - Existing */}
-        <div className="md:w-1/2 w-full p-10 md:p-16 flex flex-col justify-center bg-white dark:bg-[#1A1A1D]"> {/* Ensure this has a solid background */}
+        <div className="md:w-1/2 w-full p-10 md:p-16 flex flex-col justify-center bg-white dark:bg-[#1A1A1D]">
           <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">
             Welcome Back
           </h2>
@@ -259,7 +220,6 @@ const Login = () => {
               </Link>
             </div>
 
-            {/* Error Message (no-gap version) */}
             {error && (
               <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-none text-red-700 dark:text-red-400 px-4 py-3 rounded-lg text-sm animate-shake">
                 <p className="truncate">{error}</p>
@@ -282,7 +242,6 @@ const Login = () => {
             </button>
           </form>
 
-          {/* --- NEW: Separator --- */}
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t border-gray-300 dark:border-gray-600"></span>
@@ -294,10 +253,8 @@ const Login = () => {
             </div>
           </div>
 
-          {/* --- NEW: Google Login Button --- */}
-          {/* This Link component points to your backend endpoint to initiate the Google OAuth flow */}
           <a
-            href="http://localhost:5000/api/auth/google"
+            href={`${BASE_URL}/api/auth/google`}
             className="w-full h-[52px] bg-white dark:bg-gray-700 text-gray-700 dark:text-white py-3 rounded-lg font-semibold text-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-300 shadow-md hover:shadow-lg border border-gray-300 dark:border-gray-600 flex items-center justify-center gap-3"
             aria-label="Log in with Google"
           >
@@ -305,7 +262,6 @@ const Login = () => {
             Log in with Google
           </a>
 
-          {/* --- Sign up Link --- */}
           <div className="text-center mt-6 text-sm text-gray-600 dark:text-gray-400">
             Don’t have an account?{" "}
             <Link to={"/signup"} className="text-yellow-800 dark:text-yellow-600 font-medium hover:underline">

@@ -34,7 +34,8 @@
     "passport-google-oauth20": "^2.0.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
-    "razorpay": "^2.9.4"
+    "razorpay": "^2.9.4",
+    "socket.io": "^4.8.1"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

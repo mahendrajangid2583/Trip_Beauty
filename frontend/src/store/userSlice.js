@@ -1,66 +1,71 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import axios from 'axios';
+import api from '../services/api';
 
-// 1. The Async Thunk
-export const fetchUserOnLoad = createAsyncThunk(
-  'auth/fetchUser',
-  async (_, thunkAPI) => { // Use _ if you don't need the first arg
-    try {
-      const response = await axios.get('http://localhost:5000/api/auth/me', {
-        withCredentials: true,
-      });
-      return response.data; // This will be action.payload
-    } catch (err) {
-      const message =
-        (err.response && err.response.data && err.response.data.message) ||
-        err.message ||
-        err.toString();
-      return thunkAPI.rejectWithValue(message);
-      
-    }
+// Async Thunks
+export const fetchUser = createAsyncThunk('user/fetchUser', async (_, { rejectWithValue }) => {
+  try {
+    const response = await api.get('/api/auth/me');
+    return response.data.user;
+  } catch (error) {
+    return rejectWithValue(error.response.data);
   }
-);
+});
 
-// 2. The Slice
-const initialState = {
-  user: null,
-  isAuthenticated: false,
-  isLoading: true, // Start as 'true'
-};
+export const logoutUser = createAsyncThunk('user/logoutUser', async (_, { rejectWithValue }) => {
+  try {
+    await api.get('/api/auth/logout');
+    return null;
+  } catch (error) {
+    return rejectWithValue(error.response.data);
+  }
+});
 
-export const userSlice = createSlice({
-  name: 'auth',
-  initialState,
+const userSlice = createSlice({
+  name: 'user',
+  initialState: {
+    user: null,
+    isAuthenticated: false,
+    isLoading: false,
+    error: null,
+  },
   reducers: {
-    // Reducer for manual logout
-    logoutUser: (state) => {
+    loginSuccess: (state, action) => {
+      state.user = action.payload.user;
+      state.isAuthenticated = true;
+      state.isLoading = false;
+      state.error = null;
+    },
+    logout: (state) => {
       state.user = null;
       state.isAuthenticated = false;
-    },
-    // Reducer for manual login
-    loginSuccess: (state, action) => {
-        state.user = action.payload.user;
-        state.isAuthenticated = true;
-        state.isLoading = false;
+      state.isLoading = false;
+      state.error = null;
     }
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchUserOnLoad.pending, (state) => {
+      // Fetch User
+      .addCase(fetchUser.pending, (state) => {
         state.isLoading = true;
       })
-      .addCase(fetchUserOnLoad.fulfilled, (state, action) => {
-        state.user = action.payload.user;
-        state.isAuthenticated = true;
+      .addCase(fetchUser.fulfilled, (state, action) => {
         state.isLoading = false;
+        state.user = action.payload;
+        state.isAuthenticated = true;
       })
-      .addCase(fetchUserOnLoad.rejected, (state) => {
+      .addCase(fetchUser.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload;
         state.user = null;
         state.isAuthenticated = false;
-        state.isLoading = false;
+      })
+      // Logout
+      .addCase(logoutUser.fulfilled, (state) => {
+        state.user = null;
+        state.isAuthenticated = false;
       });
   },
 });
 
-export const { logoutUser, loginSuccess } = userSlice.actions;
+export const { loginSuccess, logout } = userSlice.actions;
 export default userSlice.reducer;

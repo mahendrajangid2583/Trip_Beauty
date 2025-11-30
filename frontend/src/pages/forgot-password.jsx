@@ -13,7 +13,8 @@ import {
   EyeOff, 
   Hash 
 } from "lucide-react";
-import { Link, useNavigate, BrowserRouter } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import api from "../services/api";
 
 // --- Helper: Password Validator (Same as Signup) ---
 const validatePassword = (password) => {
@@ -59,27 +60,19 @@ function ForgotPasswordContent() {
     setIsLoading(true);
 
     try {
-      // Simulating API Call
-      const response = await fetch("http://localhost:5000/api/auth/forgot-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Failed to send OTP");
+      await api.post("/api/auth/forgot-password", { email });
 
       // Success
       setStep(2);
       setTimer(60); // Start 60s cooldown
     } catch (err) {
-      setError(err.message);
+      setError(err.response?.data?.message || err.message);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // STEP 2: Verify OTP (Optional: You might verify centrally at step 3, but verifying here gives better UX)
+  // STEP 2: Verify OTP
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
     setError(null);
@@ -92,24 +85,10 @@ function ForgotPasswordContent() {
     setIsLoading(true);
 
     try {
-      // Optional: Verify OTP existence before letting them type password
-      // If your backend only does it all at once, you can skip this API call 
-      // and just move to setStep(3). 
-      const response = await fetch("http://localhost:5000/api/auth/verify-pass-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, otp }),
-      });
-      
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Invalid OTP");
-
+      await api.post("/api/auth/verify-pass-otp", { email, otp });
       setStep(3);
     } catch (err) {
-        // Fallback for this example: If endpoint doesn't exist in your backend yet,
-        // uncomment below to just proceed for UI testing:
-        // setStep(3); 
-      setError(err.message);
+      setError(err.response?.data?.message || err.message);
     } finally {
       setIsLoading(false);
     }
@@ -132,22 +111,15 @@ function ForgotPasswordContent() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:5000/api/auth/reset-password", {
-        method: "POST", // or PUT
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-            email, 
-            otp, 
-            newPassword: password 
-        }),
+      await api.post("/api/auth/reset-password", { 
+          email, 
+          otp, 
+          newPassword: password 
       });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Failed to reset password");
 
       setStep(4); // Show success
     } catch (err) {
-      setError(err.message);
+      setError(err.response?.data?.message || err.message);
     } finally {
       setIsLoading(false);
     }
@@ -159,14 +131,10 @@ function ForgotPasswordContent() {
     setIsLoading(true);
     setError(null);
     try {
-       await fetch("http://localhost:5000/api/auth/forgot-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      setTimer(60);
+       await api.post("/api/auth/forgot-password", { email });
+       setTimer(60);
     } catch (err) {
-      setError("Failed to resend code.");
+      setError(err.response?.data?.message || "Failed to resend code.");
     } finally {
       setIsLoading(false);
     }

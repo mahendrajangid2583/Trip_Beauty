@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { loginSuccess } from '../store/userSlice';
+import api from '../services/api';
 
 const VerifyEmail = () => {
   const navigate = useNavigate();
@@ -18,14 +19,8 @@ const VerifyEmail = () => {
     setError(null);
     setMessage(null);
     try {
-      const res = await fetch('http://localhost:5000/api/auth/verify-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ email, otp }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Verification failed');
+      const response = await api.post('/api/auth/verify-email', { email, otp });
+      const data = response.data;
 
       if (data?.user) {
         dispatch(loginSuccess({ user: data.user }));
@@ -33,7 +28,7 @@ const VerifyEmail = () => {
       setMessage('Email verified successfully! Redirecting...');
       setTimeout(() => navigate('/profile', { replace: true }), 800);
     } catch (err) {
-      setError(err.message);
+      setError(err.response?.data?.message || err.message);
     } finally {
       setIsLoading(false);
     }
@@ -44,16 +39,10 @@ const VerifyEmail = () => {
     setError(null);
     setMessage(null);
     try {
-      const res = await fetch('http://localhost:5000/api/auth/resend-verification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Could not resend verification');
+      await api.post('/api/auth/resend-verification', { email });
       setMessage('A new verification code has been sent to your email.');
     } catch (err) {
-      setError(err.message);
+      setError(err.response?.data?.message || err.message);
     } finally {
       setIsLoading(false);
     }
@@ -120,5 +109,3 @@ const VerifyEmail = () => {
 };
 
 export default VerifyEmail;
-
-
