@@ -112,36 +112,19 @@ Your Goal: Turn every user into a power-user.
 });
 
 // --- 2. Google Gemini Estimate Proxy ---
+import { getPlaceDuration } from '../utils/gemini.js';
+
+// ... (existing imports)
+
+// --- 2. Google Gemini Estimate Proxy ---
 router.post('/gemini/estimate', async (req, res) => {
     try {
         const { placeName, city } = req.body;
-
-        const prompt = `Estimate the average tourist visit duration for "${placeName}" in "${city}". 
-        Rules:
-        1. Return ONLY a single integer representing minutes (e.g. 90). 
-        2. Do NOT write words like "minutes". Just the number.
-        3. If it is a quick stop, return 30. If a big museum, return 120.`;
-
-        const response = await axios.post(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`,
-            { contents: [{ parts: [{ text: prompt }] }] },
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-goog-api-key': process.env.GEMINI_KEY_TIME
-                }
-            }
-        );
-
-        // Extract the time from Gemini's response
-        const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        const estimatedTime = text ? parseInt(text.trim(), 10) : 60; // Default to 60 if parsing fails
-
-        // Return in the format the frontend expects
-        res.json({ estimatedTime: estimatedTime });
+        const estimatedTime = await getPlaceDuration(placeName, city);
+        res.json({ estimatedTime });
     } catch (error) {
         console.error("Gemini Estimate Proxy Error:", error.message);
-        res.status(error.response?.status || 500).json(error.response?.data || { error: "Gemini API Failed" });
+        res.status(500).json({ error: "Gemini API Failed" });
     }
 });
 

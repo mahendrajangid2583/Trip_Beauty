@@ -193,7 +193,25 @@ router.patch('/:tripId/places/:placeId', protect, async (req, res) => {
         const place = trip.places.id(req.params.placeId);
         if (!place) return res.status(404).json({ message: 'Place not found' });
 
-        if (req.body.status !== undefined) place.status = req.body.status;
+        if (req.body.status !== undefined) {
+            place.status = req.body.status;
+            
+            // Sync with itinerary items
+            if (trip.itinerary && trip.itinerary.length > 0) {
+                trip.itinerary.forEach(day => {
+                    day.items.forEach(item => {
+                        // Match by externalId if available, or name/lat/lng fallback?
+                        // We added externalId to place, and itinerary item has 'id'.
+                        if (place.externalId && item.id === place.externalId) {
+                            item.status = req.body.status;
+                        } else if (!place.externalId && item.name === place.name) {
+                             // Fallback match by name
+                             item.status = req.body.status;
+                        }
+                    });
+                });
+            }
+        }
         if (req.body.estimatedTime !== undefined) place.estimatedTime = req.body.estimatedTime;
         if (req.body.aiTimeStatus !== undefined) place.aiTimeStatus = req.body.aiTimeStatus;
 
@@ -261,6 +279,54 @@ router.delete('/:tripId/places/:placeId', protect, async (req, res) => {
 
         // Return success message
         res.json({ message: 'Place deleted successfully' });
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+});
+
+// @desc    Update itinerary item status (e.g. visited)
+// @route   PATCH /api/trips/:tripId/itinerary/:itemId/status
+// @access  Private
+router.patch('/:tripId/itinerary/:itemId/status', protect, async (req, res) => {
+    try {
+        const trip = await Trip.findById(req.params.tripId);
+
+        if (!trip) return res.status(404).json({ message: 'Trip not found' });
+        if (!hasEditPermission(trip, req.user._id)) return res.status(403).json({ message: 'Not authorized' });
+
+        // Find the item in the nested array
+        let foundItem = null;
+        for (const day of trip.itinerary) {
+            const item = day.items.id(req.params.itemId);
+            if (item) {
+                foundItem = item;
+                break;
+            }
+        }
+
+        if (!foundItem) return res.status(404).json({ message: 'Itinerary item not found' });
+
+        if (req.body.status) {
+            foundItem.status = req.body.status;
+
+            // Sync with places array
+            // foundItem has 'id' which corresponds to place.externalId
+            if (foundItem.id && trip.places) {
+                const place = trip.places.find(p => p.externalId === foundItem.id);
+                if (place) {
+                    place.status = req.body.status;
+                }
+            } else if (trip.places) {
+                // Fallback by name
+                const place = trip.places.find(p => p.name === foundItem.name);
+                if (place) {
+                    place.status = req.body.status;
+                }
+            }
+        }
+
+        await trip.save();
+        res.json({ status: foundItem.status, itemId: foundItem._id });
     } catch (error) {
         res.status(400).json({ message: error.message });
     }

@@ -19,17 +19,19 @@ const ActiveNavigation = () => {
   const { tripId } = useParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  
-  const { trips, status } = useSelector(state => state.trips);
-  const trip = trips.find(t => t._id === tripId);
 
-  // Fetch trips on reload if missing
+  const { trips, status } = useSelector(state => state.trips);
+  const location = useLocation();
+  const reduxTrip = trips.find(t => t._id === tripId);
+  const trip = reduxTrip || location.state?.trip;
+
+  // Fetch trips on reload if missing from Redux (even if we have location state, we want live updates)
   useEffect(() => {
-    if (!trip && status === 'idle') {
+    if (!reduxTrip && status === 'idle') {
       dispatch(fetchTrips());
     }
-  }, [trip, status, dispatch]);
-  
+  }, [reduxTrip, status, dispatch]);
+
   const [userLocation, setUserLocation] = useState(null);
   const [activePlace, setActivePlace] = useState(null);
   const [routeGeoJson, setRouteGeoJson] = useState(null);
@@ -37,7 +39,7 @@ const ActiveNavigation = () => {
   const [travelMode, setTravelMode] = useState('drive');
   const [loading, setLoading] = useState(true);
   const [isNavigationActive, setIsNavigationActive] = useState(false); // Default to Overview Mode
-  
+
   // Map View State
   const [viewState, setViewState] = useState({
     longitude: 78.9629,
@@ -47,7 +49,6 @@ const ActiveNavigation = () => {
     bearing: 0
   });
 
-  const location = useLocation();
   const directDestination = location.state?.destination;
   const directName = location.state?.name;
 
@@ -60,28 +61,18 @@ const ActiveNavigation = () => {
         name: directName || "Destination",
         _id: 'direct-dest'
       });
-      return;
-    }
-
-    if (trip && userLocation) {
-      const recommended = getNextRecommendation(trip.places, userLocation.lat, userLocation.lng);
-      if (recommended) {
-        setActivePlace(recommended);
+      // Check if all done
+      const pending = trip.places?.filter(p => p.status === 'pending') || [];
+      if (pending.length === 0) {
+        // All visited
       } else {
-        // Check if all done
-        const pending = trip.places.filter(p => p.status === 'pending');
-        if (pending.length === 0) {
-           // All visited
-           // alert("Journey Completed!"); // Optional: Don't alert immediately on mount
-        } else {
-           // Fallback if recommendation returns null but there are pending places (shouldn't happen if logic is correct)
-           setActivePlace(pending[0]);
-        }
+        // Fallback if recommendation returns null but there are pending places
+        setActivePlace(pending[0]);
       }
     } else if (trip && !userLocation) {
-       // Fallback if no location yet: just show first pending
-       const pending = trip.places.filter(p => p.status === 'pending');
-       if (pending.length > 0) setActivePlace(pending[0]);
+      // Fallback if no location yet: just show first pending
+      const pending = trip.places?.filter(p => p.status === 'pending') || [];
+      if (pending.length > 0) setActivePlace(pending[0]);
     }
   }, [trip, userLocation, directDestination, directName]);
 
@@ -96,7 +87,7 @@ const ActiveNavigation = () => {
       (position) => {
         const { latitude, longitude, heading } = position.coords;
         setUserLocation({ lat: latitude, lng: longitude });
-        
+
         // Initial Center
         if (loading) {
           setViewState(prev => ({
@@ -151,12 +142,24 @@ const ActiveNavigation = () => {
   const handleArrived = async () => {
     if (activePlace) {
       if (window.confirm(`Mark ${activePlace.name} as visited?`)) {
-        await dispatch(updatePlaceStatus({ 
-          tripId: trip._id, 
-          placeId: activePlace._id, 
-          status: 'visited' 
+        // 1. Dispatch update to backend/redux
+        await dispatch(updatePlaceStatus({
+          tripId: trip._id,
+          placeId: activePlace._id,
+          status: 'visited'
         }));
-        setIsNavigationActive(false); // Reset to overview for next leg
+
+        // 2. Immediately find next place from current list (excluding the one just visited)
+        // We use the current trip.places but filter out the activePlace
+        const nextPending = trip.places?.filter(p => p.status === 'pending' && p._id !== activePlace._id) || [];
+
+        if (nextPending.length > 0) {
+          setActivePlace(nextPending[0]);
+          setIsNavigationActive(false); // Reset to overview for next leg
+        } else {
+          setActivePlace(null);
+          alert("Journey Completed!");
+        }
       }
     }
   };
@@ -204,7 +207,7 @@ const ActiveNavigation = () => {
       <div className="absolute inset-0 z-50 pointer-events-none">
         {/* Recenter FAB (Keep this floating if desired, or move it too. User didn't explicitly say to move Recenter, just the Start button. I'll keep Recenter floating for now as it's standard map UX, but maybe move it up a bit if needed. Actually, user said "button that i was talking about", which was the Start button.) */}
         <div className="absolute bottom-40 right-4 pointer-events-auto">
-          <button 
+          <button
             onClick={handleRecenter}
             className="bg-white text-black p-3 rounded-full shadow-lg hover:bg-gray-200 transition-colors"
           >
@@ -214,7 +217,7 @@ const ActiveNavigation = () => {
 
         {/* Bottom Bar: Travel Mode Selector */}
         <div className="absolute bottom-0 left-0 right-0 pointer-events-auto">
-          <TravelModeSelector 
+          <TravelModeSelector
             currentMode={travelMode}
             onModeChange={setTravelMode}
             eta={routeData?.time}

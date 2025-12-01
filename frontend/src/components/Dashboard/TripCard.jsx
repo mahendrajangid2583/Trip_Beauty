@@ -1,25 +1,25 @@
 import React, { useState } from 'react';
-import { 
-  MapPin, 
-  Search, 
-  Navigation, 
-  Clock, 
-  ChevronDown, 
-  ChevronUp, 
-  Trash2, 
-  CheckCircle, 
+import {
+  MapPin,
+  Search,
+  Navigation,
+  Clock,
+  ChevronDown,
+  ChevronUp,
+  Trash2,
+  CheckCircle,
   Plus,
   Share2,
   RefreshCcw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDispatch } from 'react-redux';
-import { 
-  deleteTrip, 
-  updateTripStatus, 
-  addPlaceToTrip, 
-  updatePlaceStatus, 
-  deletePlaceFromTrip 
+import {
+  deleteTrip,
+  updateTripStatus,
+  addPlaceToTrip,
+  updatePlaceStatus,
+  deletePlaceFromTrip
 } from '../../store/tripSlice';
 import PlaceItem from './PlaceItem';
 import { api } from '../../utils/api';
@@ -62,7 +62,7 @@ const TripCard = ({ trip, index, isExpanded, onToggle, onGoClick, userLocation, 
     if (!places) return [];
     const pending = places.filter(p => p.status === 'pending');
     const completed = places.filter(p => p.status !== 'pending');
-    
+
     if (userLocation) {
       pending.sort((a, b) => {
         const distA = getDistanceFromLatLonInKm(userLocation.lat, userLocation.lng, a.lat, a.lng);
@@ -76,7 +76,7 @@ const TripCard = ({ trip, index, isExpanded, onToggle, onGoClick, userLocation, 
   const sortedPlaces = getSortedPlaces(trip.places);
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.05 }}
@@ -96,9 +96,9 @@ const TripCard = ({ trip, index, isExpanded, onToggle, onGoClick, userLocation, 
               </div>
             )}
           </div>
-          
+
           <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-auto relative z-10">
-             <button
+            <button
               onClick={(e) => { e.stopPropagation(); onShare(trip); }}
               className="p-2 text-slate-400 hover:text-[#fcd34d] hover:bg-[#fcd34d]/10 rounded-full transition-colors border border-transparent hover:border-[#fcd34d]/20"
               title="Share Trip"
@@ -106,14 +106,20 @@ const TripCard = ({ trip, index, isExpanded, onToggle, onGoClick, userLocation, 
               <Share2 size={18} />
             </button>
 
-             <button
-              onClick={(e) => { e.stopPropagation(); onGoClick(trip); }}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                // If it's an itinerary trip, we might want to just open it directly instead of showing the "Start Journey" modal which is for manual trips
+                // OR we can let the parent handle it.
+                // Let's let the parent handle it, but maybe pass a flag or check in parent.
+                onGoClick(trip);
+              }}
               className="flex items-center gap-1.5 bg-[#fcd34d] text-[#020617] hover:bg-[#fcd34d]/90 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-colors shadow-lg shadow-[#fcd34d]/20"
             >
               <Navigation size={14} />
-              Go
+              {trip.itinerary && trip.itinerary.length > 0 ? 'View' : 'Go'}
             </button>
-            
+
             {/* Complete / Reactivate Toggle */}
             {trip.status === 'completed' ? (
               <button
@@ -133,14 +139,14 @@ const TripCard = ({ trip, index, isExpanded, onToggle, onGoClick, userLocation, 
               </button>
             )}
 
-             <button
+            <button
               onClick={(e) => { e.stopPropagation(); dispatch(deleteTrip(trip._id)); }}
               className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-full transition-colors border border-transparent hover:border-red-500/20"
               title="Delete Trip"
             >
               <Trash2 size={18} />
             </button>
-            <button 
+            <button
               onClick={onToggle}
               className="p-2 text-slate-500 hover:text-white transition-colors"
             >
@@ -168,7 +174,7 @@ const TripCard = ({ trip, index, isExpanded, onToggle, onGoClick, userLocation, 
                   value={searchQuery}
                 />
               </div>
-              
+
               {/* Search Results Dropdown */}
               {searchResults.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-2 bg-[#0f172a] rounded-xl shadow-2xl border border-white/10 z-20 overflow-hidden max-h-60 overflow-y-auto custom-scrollbar">

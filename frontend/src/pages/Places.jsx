@@ -108,6 +108,7 @@ const Places = () => {
   const [error, setError] = useState(null);
   const [cityName, setCityName] = useState('');
   const [cityLat, setCityLat] = useState(null);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [cityLon, setCityLon] = useState(null);
 
   useEffect(() => {
@@ -152,6 +153,24 @@ const Places = () => {
     navigate(-1);
   };
 
+  const handleGenerateTrip = async () => {
+    if (isGenerating) return;
+    setIsGenerating(true);
+    try {
+      const response = await api.post(`/api/plan-trip`, { city: cityName, places: selectedPlaces });
+      const data = response.data;
+      // persist for fallback and navigate
+      const tripData = data.trip || { ...data, _id: data.tripId, itinerary: data.days, places: data.places };
+      localStorage.setItem('tripPlan', JSON.stringify(tripData));
+      navigate('/trip-planner', { state: { trip: tripData } });
+    } catch (err) {
+      console.error('Trip plan error:', err);
+      alert('Failed to create trip plan. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 pt-20">
       {/* Fixed Background for Navbar Area */}
@@ -184,21 +203,18 @@ const Places = () => {
                   {selectedPlaces.length} selected
                 </span>
                 <button
-                  onClick={async () => {
-                    try {
-                      const response = await api.post(`/api/plan-trip`, { city: cityName, places: selectedPlaces });
-                      const data = response.data;
-                      // persist for fallback and navigate
-                      localStorage.setItem('tripPlan', JSON.stringify(data));
-                      navigate('/trip-planner', { state: { trip: data } });
-                    } catch (err) {
-                      console.error('Trip plan error:', err);
-                      alert('Failed to create trip plan. Please try again.');
-                    }
-                  }}
-                  className="px-6 py-2 rounded-full bg-[#fcd34d] hover:bg-[#fcd34d]/90 text-slate-950 text-sm font-bold tracking-wide transition-all duration-150 shadow-lg shadow-[#fcd34d]/20"
+                  onClick={handleGenerateTrip}
+                  disabled={isGenerating}
+                  className={`px-6 py-2 rounded-full bg-[#fcd34d] hover:bg-[#fcd34d]/90 text-slate-950 text-sm font-bold tracking-wide transition-all duration-150 shadow-lg shadow-[#fcd34d]/20 flex items-center space-x-2 ${isGenerating ? 'opacity-75 cursor-not-allowed' : ''}`}
                 >
-                  Generate Trip Plan
+                  {isGenerating ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
+                      <span>Generating...</span>
+                    </>
+                  ) : (
+                    <span>Generate Trip Plan</span>
+                  )}
                 </button>
               </div>
             )}

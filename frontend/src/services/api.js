@@ -9,4 +9,10 @@ const api = axios.create({
     withCredentials: true, // Important for cookies/sessions
 });
 
+export const planTrip = async (city, places) => {
+  // Use the 'api' instance which has the interceptor for the token
+  const response = await api.post("/api/plan-trip", { city, places });
+  return response.data;
+};
+
 export default api;

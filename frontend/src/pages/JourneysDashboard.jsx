@@ -4,11 +4,11 @@ import { Plus } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { 
+import {
   fetchTrips,
-  createTrip, 
-  deleteTrip, 
-  updateTripStatus 
+  createTrip,
+  deleteTrip,
+  updateTripStatus
 } from '../store/tripSlice';
 import CreateTripModal from '../components/Dashboard/CreateTripModal';
 import StartJourneyModal from '../components/Dashboard/StartJourneyModal';
@@ -20,7 +20,7 @@ const JourneysDashboard = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { trips, status } = useSelector(state => state.trips);
-  
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isStartModalOpen, setIsStartModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -31,7 +31,7 @@ const JourneysDashboard = () => {
 
   useEffect(() => {
     dispatch(fetchTrips());
-    
+
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -55,6 +55,12 @@ const JourneysDashboard = () => {
   };
 
   const handleGoClick = (trip) => {
+    // If it's a generated itinerary trip, view it directly in TripPlanner
+    if (trip.itinerary && trip.itinerary.length > 0) {
+      navigate('/trip-planner', { state: { trip } });
+      return;
+    }
+    // Otherwise open the start modal for active navigation
     setCurrentTripForStart(trip);
     setIsStartModalOpen(true);
   };
@@ -67,7 +73,13 @@ const JourneysDashboard = () => {
   const handleConfirmNavigation = (place) => {
     setIsStartModalOpen(false);
     if (currentTripForStart) {
-      navigate(`/navigate/${currentTripForStart._id}`);
+      // If it's a generated itinerary trip (has itinerary array), go to TripPlanner view
+      if (currentTripForStart.itinerary && currentTripForStart.itinerary.length > 0) {
+        navigate('/trip-planner', { state: { trip: currentTripForStart } });
+      } else {
+        // Manual trip, go to active navigation
+        navigate(`/navigate/${currentTripForStart._id}`);
+      }
     }
   };
 
@@ -88,15 +100,15 @@ const JourneysDashboard = () => {
 
   return (
     <div className="min-h-screen font-sans relative overflow-hidden bg-[#020617] text-slate-200 pt-28 px-4 sm:px-6 lg:px-8 selection:bg-[#fcd34d]/30 selection:text-white">
-      
+
       <div className="relative z-10 max-w-7xl mx-auto">
-        
+
         {/* Header Section */}
         <div className="mb-12">
-            <h1 className="text-4xl font-serif font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#fcd34d] to-[#fef3c7] mb-2">
-              Your Itineraries
-            </h1>
-            <p className="text-slate-400 font-light tracking-wide">Curate your adventures and track your journeys.</p>
+          <h1 className="text-4xl font-serif font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#fcd34d] to-[#fef3c7] mb-2">
+            Your Itineraries
+          </h1>
+          <p className="text-slate-400 font-light tracking-wide">Curate your adventures and track your journeys.</p>
         </div>
 
         {/* Active & Upcoming Trips */}
@@ -106,25 +118,25 @@ const JourneysDashboard = () => {
             <h2 className="text-xs font-bold uppercase tracking-widest text-[#fcd34d]">Active Journeys</h2>
             <div className="h-px flex-1 bg-white/10"></div>
           </div>
-          
+
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
             {/* Create New Trip Card */}
             <motion.button
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setIsModalOpen(true)}
-                className="h-full min-h-[200px] flex flex-col items-center justify-center bg-white/5 backdrop-blur-xl border border-dashed border-white/20 rounded-2xl hover:bg-white/10 hover:border-[#fcd34d]/50 transition-all group"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setIsModalOpen(true)}
+              className="h-full min-h-[200px] flex flex-col items-center justify-center bg-white/5 backdrop-blur-xl border border-dashed border-white/20 rounded-2xl hover:bg-white/10 hover:border-[#fcd34d]/50 transition-all group"
             >
-                <div className="p-4 rounded-full bg-white/5 group-hover:bg-[#fcd34d] transition-colors mb-4 shadow-lg">
-                    <Plus className="w-8 h-8 text-slate-400 group-hover:text-[#020617] transition-colors" />
-                </div>
-                <span className="text-lg font-serif font-medium text-slate-300 group-hover:text-white">Create New Journey</span>
+              <div className="p-4 rounded-full bg-white/5 group-hover:bg-[#fcd34d] transition-colors mb-4 shadow-lg">
+                <Plus className="w-8 h-8 text-slate-400 group-hover:text-[#020617] transition-colors" />
+              </div>
+              <span className="text-lg font-serif font-medium text-slate-300 group-hover:text-white">Create New Journey</span>
             </motion.button>
 
             {activeTrips.map((trip, index) => (
-              <TripCard 
+              <TripCard
                 key={trip._id}
                 trip={trip}
                 index={index}
@@ -142,19 +154,19 @@ const JourneysDashboard = () => {
         {pastTrips.length > 0 && (
           <section>
             <div className="flex items-center gap-2 mb-6">
-                <div className="h-px w-8 bg-slate-700"></div>
-                <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500">Past Journeys</h2>
-                <div className="h-px flex-1 bg-white/5"></div>
+              <div className="h-px w-8 bg-slate-700"></div>
+              <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500">Past Journeys</h2>
+              <div className="h-px flex-1 bg-white/5"></div>
             </div>
-            
+
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {pastTrips.map(trip => (
-                <TripCard 
+                <TripCard
                   key={trip._id}
                   trip={trip}
                   index={0}
                   isExpanded={false}
-                  onToggle={() => {}}
+                  onToggle={() => { }}
                   onGoClick={() => dispatch(updateTripStatus({ tripId: trip._id, status: 'active' }))}
                   onShare={handleShareClick}
                   userLocation={userLocation}
@@ -181,7 +193,7 @@ const JourneysDashboard = () => {
         />
       )}
 
-      <ShareTripModal 
+      <ShareTripModal
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
         trip={currentTripForShare}

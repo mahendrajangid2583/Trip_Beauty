@@ -1,8 +1,10 @@
 // routes/planTrip.js
 import express from "express";
 import axios from "axios";
-import TripPlan from "../models/TripPlan.js";
+import Trip from "../models/Trip.js";
+import passport from "passport";
 import { getTimeDistanceMatrix, orderPlacesByMatrix, VISIT_DURATION_MIN } from "../utils/scheduler.js";
+import { getPlaceDuration } from '../utils/gemini.js';
 
 const router = express.Router();
 
@@ -38,7 +40,24 @@ function getTravelMinutes(matrixData, fromOrigIndex, toOrigIndex) {
   }
 }
 
-router.post("/", async (req, res) => {
+// Optional auth: try to authenticate, but don't fail if no token (so we can still generate plans for guests if needed, 
+// though for "My Trips" we need them logged in. The prompt implies saving it, so we should probably enforce it or handle it).
+// Let's use 'authenticate' but with { session: false }. If it fails, req.user will be undefined.
+// Actually, passport.authenticate('jwt') usually sends 401 if it fails.
+// We can use a custom middleware to make it optional, or just enforce it.
+// Given the requirement "save this itinerary into mongoDb... fetch by clicking on my trips", 
+// it strongly implies a logged-in user. Let's make it optional for now to not break guest usage, 
+// but if they want to save, they should be logged in.
+
+const optionalAuth = (req, res, next) => {
+  passport.authenticate('jwt', { session: false }, (err, user, info) => {
+    if (err) return next(err);
+    if (user) req.user = user;
+    next();
+  })(req, res, next);
+};
+
+router.post("/", optionalAuth, async (req, res) => {
   console.log("Received plan-trip request");
   try {
     const { city, places } = req.body;
@@ -49,8 +68,35 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "places array required" });
     }
 
+
+
+// ... (existing imports)
+
     // Keep original indices to map back to matrix
     const placesWithIndex = places.map((p, idx) => ({ ...p, _origIndex: idx }));
+
+    // 0) Fetch dynamic visit durations from Gemini with concurrency limit
+    console.log("Fetching AI duration estimates...");
+    
+    // Simple batch processor to avoid 429 errors
+    const BATCH_SIZE = 2;
+    const durations = [];
+    for (let i = 0; i < placesWithIndex.length; i += BATCH_SIZE) {
+        const batch = placesWithIndex.slice(i, i + BATCH_SIZE);
+        const batchPromises = batch.map(p => getPlaceDuration(p.name, city));
+        const batchResults = await Promise.all(batchPromises);
+        durations.push(...batchResults);
+        // Delay between batches if not the last batch
+        if (i + BATCH_SIZE < placesWithIndex.length) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+    }
+    
+    // Attach durations to places
+    placesWithIndex.forEach((p, idx) => {
+        p.aiDuration = durations[idx];
+    });
+    console.log("AI durations received.");
 
     // 1) Get real time-distance matrix from Geoapify
     let matrixData = null;
@@ -73,9 +119,6 @@ router.post("/", async (req, res) => {
     } else {
       console.log("Using original order (fallback).");
     }
-
-    // orderedByMatrix keeps objects with _origIndex too
-
     // 3) Build day-wise itinerary using matrix travel times & visit estimates
     const days = [];
     let dayNumber = 1;
@@ -99,7 +142,8 @@ router.post("/", async (req, res) => {
 
     for (let i = 0; i < orderedByMatrix.length; i++) {
       const p = orderedByMatrix[i];
-      const visitMin = VISIT_DURATION_MIN[p.category] || VISIT_DURATION_MIN.default;
+      // Use AI duration if available, otherwise fallback to category default
+      const visitMin = p.aiDuration || VISIT_DURATION_MIN[p.category] || VISIT_DURATION_MIN.default;
 
       // travel minutes from last place
       let travelMin = 0;
@@ -210,24 +254,73 @@ router.post("/", async (req, res) => {
     // push last day
     if (dayItems.length) pushDay();
 
-    // 4) Save to MongoDB
+    // 4) Save to MongoDB (Trip Model)
     console.log("Saving trip to DB...");
-    const tripDoc = new TripPlan({
-      city: city || "",
-      totalDays: days.length,
-      days,
-      createdAt: new Date()
+    
+    // Check for user in request (assuming auth middleware populates req.user)
+    // If no user, we can still return the JSON but maybe not save it, or save as anonymous?
+    // For "My Trips" to work, we need a user.
+    // We'll assume the frontend sends the token and the route is protected or we check here.
+    
+    let tripId = null;
+    
+    // NOTE: In a real app, you'd want to ensure req.user exists. 
+    // If you are calling this from a public route, you might need to handle anonymous trips differently.
+    // For now, we'll try to save if req.user exists, otherwise just return JSON.
+    
+    // However, the prompt implies we WANT to save it. 
+    // So let's assume we will pass the token from frontend.
+    
+    // Extract unique places from itinerary for flat list view
+    const uniquePlaces = new Map();
+    days.forEach(day => {
+        day.items.forEach(item => {
+            if (item.type === 'visit' && !uniquePlaces.has(item.id)) {
+                uniquePlaces.set(item.id, {
+                    name: item.name,
+                    externalId: item.id,
+                    lat: item.lat,
+                    lng: item.lon, // Note: Schema uses 'lng', itinerary uses 'lon'
+                    estimatedTime: item.durationMin,
+                    status: 'pending',
+                    image: item.thumbnail,
+                    description: item.description,
+                    // source: 'generated' 
+                });
+            }
+        });
     });
-    await tripDoc.save();
-    console.log("Trip saved:", tripDoc._id);
+
+    if (req.user) {
+        const newTrip = new Trip({
+            user: req.user._id,
+            owner: req.user._id,
+            name: `Trip to ${city}`,
+            city: city, // We might need to add 'city' to Trip schema if not there, or just rely on name
+            status: 'upcoming',
+            itinerary: days,
+            places: Array.from(uniquePlaces.values()) // Populate places from uniquePlaces
+        });
+        
+        await newTrip.save();
+        tripId = newTrip._id;
+        console.log("Trip saved to User account:", tripId);
+    } else {
+        console.log("No user found in request, returning ephemeral trip plan.");
+        // We could still save it to TripPlan for anonymous users if we wanted, 
+        // but the goal is "My Trips", so we really want a user.
+        // For now, let's just return the plan.
+    }
 
     // 5) Return JSON with itinerary and trip id
     return res.json({
       success: true,
-      tripId: tripDoc._id,
+      tripId: tripId, // This might be null if not logged in
       city,
       totalDays: days.length,
-      days
+      days,
+      places: Array.from(uniquePlaces.values()), // Return places for immediate frontend use
+      trip: tripId ? await Trip.findById(tripId) : null // Return full trip object if saved
     });
 
   } catch (err) {

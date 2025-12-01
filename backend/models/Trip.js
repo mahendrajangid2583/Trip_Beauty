@@ -5,6 +5,9 @@ const placeSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    externalId: {
+        type: String
+    },
     lat: {
         type: Number,
         required: true
@@ -62,6 +65,9 @@ const tripSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    city: {
+        type: String
+    },
     timeConstraint: {
         type: String
     },
@@ -70,6 +76,30 @@ const tripSchema = new mongoose.Schema({
         enum: ['upcoming', 'active', 'completed'],
         default: 'upcoming'
     },
+    itinerary: [{
+        dayNumber: Number,
+        totalMinutes: Number,
+        items: [{
+            type: { type: String }, // "visit", "travel", "break"
+            name: String,
+            id: String,
+            address: String,
+            lat: Number,
+            lon: Number,
+            thumbnail: String,
+            description: String,
+            category: String,
+            durationMin: Number,
+            startTime: String,
+            endTime: String,
+            details: mongoose.Schema.Types.Mixed,
+            status: {
+                type: String,
+                enum: ['pending', 'visited', 'skipped'],
+                default: 'pending'
+            }
+        }]
+    }],
     places: [placeSchema],
     createdAt: {
         type: Date,

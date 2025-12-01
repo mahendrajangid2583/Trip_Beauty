@@ -1,23 +1,32 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 import ItineraryCard from "../components/ItineraryCard";
 import { ArrowLeft, Calendar, MapPin } from "lucide-react";
 
 const TripPlanner = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [trip, setTrip] = useState(null);
+  const { trips } = useSelector((state) => state.trips);
+
+  // Initialize with location state or local storage
+  const [initialTrip, setInitialTrip] = useState(null);
 
   useEffect(() => {
     const incoming = location.state?.trip;
     if (incoming) {
-      setTrip(incoming);
+      setInitialTrip(incoming);
       localStorage.setItem('tripPlan', JSON.stringify(incoming));
     } else {
       const cached = localStorage.getItem('tripPlan');
-      if (cached) setTrip(JSON.parse(cached));
+      if (cached) setInitialTrip(JSON.parse(cached));
     }
   }, [location.state]);
+
+  // Prefer the trip from Redux store if it exists (for live updates)
+  const trip = initialTrip?._id
+    ? trips.find(t => t._id === initialTrip._id) || initialTrip
+    : initialTrip;
 
   const handleBack = () => {
     navigate(-1);
@@ -53,14 +62,22 @@ const TripPlanner = () => {
               <div className="w-px h-6 bg-white/10 hidden sm:block"></div>
               <div className="flex items-center space-x-2 text-slate-300">
                 <Calendar className="h-5 w-5 text-[#fcd34d]" />
-                <span className="font-medium">{trip.totalDays} Days</span>
+                <span className="font-medium">{trip.totalDays || trip.itinerary?.length || trip.days?.length || 0} Days</span>
               </div>
+
+              <button
+                onClick={() => navigate(`/navigate/${trip._id}`, { state: { trip } })}
+                className="flex items-center space-x-2 bg-[#fcd34d] text-[#020617] px-6 py-2.5 rounded-full font-bold hover:bg-[#fcd34d]/90 transition-all shadow-lg shadow-[#fcd34d]/20"
+              >
+                <MapPin className="h-5 w-5" />
+                <span>Start Trip</span>
+              </button>
             </div>
 
             {/* Day Cards */}
             <div className="space-y-6">
-              {trip.days?.map((day) => (
-                <ItineraryCard key={day.dayNumber} day={day} />
+              {(trip.itinerary || trip.days)?.map((day) => (
+                <ItineraryCard key={day.dayNumber} day={day} tripId={trip._id} />
               ))}
             </div>
 

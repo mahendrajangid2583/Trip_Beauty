@@ -4,16 +4,16 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { BASE_URL } from '../../services/api';
 
-const NavigationMap = ({ 
-  userLocation, 
-  routeGeoJson, 
-  apiKey, 
-  viewState: parentViewState, 
+const NavigationMap = ({
+  userLocation,
+  routeGeoJson,
+  apiKey,
+  viewState: parentViewState,
   onMove,
   isNavigationActive // New Prop
 }) => {
   const mapRef = useRef(null);
-  
+
   // Helper: Calculate bearing between two points
   const calculateBearing = (startLat, startLng, destLat, destLng) => {
     const startLatRad = (startLat * Math.PI) / 180;
@@ -133,16 +133,16 @@ const NavigationMap = ({
       >
         {/* User Marker */}
         {userLocation && (
-          <Marker 
-            longitude={userLocation.lng} 
-            latitude={userLocation.lat} 
+          <Marker
+            longitude={userLocation.lng}
+            latitude={userLocation.lat}
             anchor="center"
           >
             <div className="relative flex items-center justify-center">
               <div className="w-6 h-6 bg-blue-500 rounded-full border-2 border-white shadow-lg z-20" />
               <div className="absolute w-12 h-12 bg-blue-500/30 rounded-full animate-ping z-10" />
               {/* Direction Cone */}
-              <div 
+              <div
                 className="absolute w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-b-[30px] border-b-blue-500/20 -top-8 transform -translate-y-1/2"
                 style={{ transform: `rotate(${parentViewState.bearing || 0}deg)` }}
               />
