@@ -58,7 +58,7 @@ app.use(helmet());
 // --- CORS Configuration ---
 // Important for allowing frontend (React) to send cookies
 const corsOptions = {
-  origin: 'http://localhost:5173', // Your frontend URL
+  origin: process.env.CLIENT_ORIGIN, // Your frontend URL
   credentials: true, // This allows cookies (credentials) to be sent
 };
 app.use(cors(corsOptions));
