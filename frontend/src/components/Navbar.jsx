@@ -19,11 +19,13 @@ import { useSelector, useDispatch } from "react-redux";
 import { logoutUser } from "../store/userSlice";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
+import SearchPage from "./home/SearchPage";
 
 export default function Navbar() {
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  const [isSearchPageOpen, setIsSearchPageOpen] = useState(false);
   
   // Refs for click-outside detection
   const dropdownRef = useRef(null);
@@ -54,6 +56,7 @@ export default function Navbar() {
     setIsMobileMenuOpen(false);
     setIsUserDropdownOpen(false);
     setIsMobileSearchOpen(false);
+    setIsSearchPageOpen(false);
   }, [location]);
 
   const handleLogout = async () => {
@@ -65,13 +68,6 @@ export default function Navbar() {
       navigate("/login");
     } catch (error) {
       console.error("Logout failed", error);
-    }
-  };
-
-  const handleSearch = (e) => {
-    if (e.key === 'Enter') {
-      navigate(`/search?q=${encodeURIComponent(e.target.value)}`);
-      setIsMobileSearchOpen(false);
     }
   };
 
@@ -93,16 +89,15 @@ export default function Navbar() {
 
             {/* --- CENTER: Search Bar (Desktop Only) --- */}
             <div className="hidden md:block flex-1 max-w-sm mx-8">
-              <div className="relative group">
+              <div className="relative group cursor-pointer" onClick={() => setIsSearchPageOpen(true)}>
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search className="h-4 w-4 text-slate-500 group-focus-within:text-[#fcd34d] transition-colors" />
+                  <Search className="h-4 w-4 text-slate-500 group-hover:text-[#fcd34d] transition-colors" />
                 </div>
-                <input
-                  type="text"
-                  placeholder="Search destinations..."
-                  className="block w-full pl-10 pr-3 py-1.5 border-b border-white/10 bg-transparent text-slate-200 placeholder-slate-500 focus:outline-none focus:border-[#fcd34d] sm:text-sm transition-all duration-300 font-light tracking-wide"
-                  onKeyDown={handleSearch}
-                />
+                <div
+                  className="block w-full pl-10 pr-3 py-1.5 border-b border-white/10 bg-transparent text-slate-500 sm:text-sm transition-all duration-300 font-light tracking-wide group-hover:border-[#fcd34d]"
+                >
+                  Search destinations...
+                </div>
               </div>
             </div>
 
@@ -120,7 +115,7 @@ export default function Navbar() {
 
               {/* Mobile Search Toggle */}
               <button
-                onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
+                onClick={() => setIsSearchPageOpen(true)}
                 className="md:hidden p-2 text-slate-400 hover:text-[#fcd34d] transition-colors"
               >
                 <Search className="h-5 w-5" />
@@ -193,31 +188,6 @@ export default function Navbar() {
             </div>
         </div>
 
-        {/* --- MOBILE SEARCH BAR (Dropdown) --- */}
-        <AnimatePresence>
-          {isMobileSearchOpen && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="md:hidden absolute top-full left-0 right-0 mt-2 bg-[#0f172a]/95 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-2xl mx-4"
-            >
-              <div className="p-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-                  <input
-                    type="text"
-                    autoFocus
-                    placeholder="Search..."
-                    className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-slate-200 placeholder-slate-500 focus:outline-none focus:border-[#fcd34d]/50 transition-colors"
-                    onKeyDown={handleSearch}
-                  />
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         {/* --- MOBILE MENU DRAWER --- */}
         <AnimatePresence>
           {isMobileMenuOpen && (
@@ -238,7 +208,7 @@ export default function Navbar() {
                       {user.profilePic?.url ? (
                         <img src={user.profilePic.url} alt="Profile" className="h-12 w-12 rounded-full border border-white/10" />
                       ) : (
-                        <div className="h-12 w-12 bg-slate-800 rounded-full flex items-center justify-center text-[#fcd34d] font-bold border border-white/10">
+                      <div className="h-12 w-12 bg-slate-800 rounded-full flex items-center justify-center text-[#fcd34d] font-bold border border-white/10">
                           {user.name?.charAt(0)}
                         </div>
                       )}
@@ -281,6 +251,9 @@ export default function Navbar() {
         </AnimatePresence>
 
       </nav>
+
+      {/* --- SEARCH PAGE OVERLAY --- */}
+      <SearchPage isOpen={isSearchPageOpen} onClose={() => setIsSearchPageOpen(false)} />
     </>
   );
 }

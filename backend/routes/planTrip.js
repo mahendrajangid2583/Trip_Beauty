@@ -38,10 +38,14 @@ function getTravelMinutes(matrixData, fromOrigIndex, toOrigIndex) {
   }
 }
 
-router.post("/plan-trip", async (req, res) => {
+router.post("/", async (req, res) => {
+  console.log("Received plan-trip request");
   try {
     const { city, places } = req.body;
+    console.log(`City: ${city}, Places count: ${places?.length}`);
+    
     if (!places || !Array.isArray(places) || places.length === 0) {
+      console.error("Invalid places array");
       return res.status(400).json({ error: "places array required" });
     }
 
@@ -49,12 +53,26 @@ router.post("/plan-trip", async (req, res) => {
     const placesWithIndex = places.map((p, idx) => ({ ...p, _origIndex: idx }));
 
     // 1) Get real time-distance matrix from Geoapify
-    const matrixData = await getTimeDistanceMatrix(placesWithIndex);
-    // matrixData.sources_to_targets available
+    let matrixData = null;
+    try {
+      console.log("Fetching matrix from Geoapify...");
+      matrixData = await getTimeDistanceMatrix(placesWithIndex);
+      console.log("Matrix data received:", matrixData ? "Yes" : "No");
+    } catch (e) {
+      console.warn("Matrix fetch failed (using fallback):", e.message);
+      // matrixData remains null
+    }
 
     // 2) Determine an optimized visiting order using matrix travel times
     // orderPlacesByMatrix expects matrixData and original places order
-    const orderedByMatrix = orderPlacesByMatrix(matrixData, placesWithIndex);
+    let orderedByMatrix = placesWithIndex;
+    if (matrixData) {
+      console.log("Ordering places...");
+      orderedByMatrix = orderPlacesByMatrix(matrixData, placesWithIndex);
+      console.log("Places ordered.");
+    } else {
+      console.log("Using original order (fallback).");
+    }
 
     // orderedByMatrix keeps objects with _origIndex too
 
@@ -86,8 +104,12 @@ router.post("/plan-trip", async (req, res) => {
       // travel minutes from last place
       let travelMin = 0;
       if (lastOrigIndex !== null) {
-        const val = getTravelMinutes(matrixData, lastOrigIndex, p._origIndex);
+        let val = null;
+        if (matrixData) {
+          val = getTravelMinutes(matrixData, lastOrigIndex, p._origIndex);
+        }
         // fallback (rare) to haversine rough guess if API didn't return times
+        // Assume 30km/h avg speed for haversine distance
         travelMin = typeof val === "number" ? val :  Math.round((calcHaversineKm(orderedByMatrix[i-1].lat, orderedByMatrix[i-1].lon, p.lat, p.lon) / 30) * 60);
       }
 
@@ -189,6 +211,7 @@ router.post("/plan-trip", async (req, res) => {
     if (dayItems.length) pushDay();
 
     // 4) Save to MongoDB
+    console.log("Saving trip to DB...");
     const tripDoc = new TripPlan({
       city: city || "",
       totalDays: days.length,
@@ -196,6 +219,7 @@ router.post("/plan-trip", async (req, res) => {
       createdAt: new Date()
     });
     await tripDoc.save();
+    console.log("Trip saved:", tripDoc._id);
 
     // 5) Return JSON with itinerary and trip id
     return res.json({

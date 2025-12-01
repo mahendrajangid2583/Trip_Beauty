@@ -1,47 +1,137 @@
 import React from "react";
+import { MapPin, Clock, Utensils, Car, Navigation } from "lucide-react";
 
 const ItineraryCard = ({ day }) => {
   return (
-    <div className="bg-white/5 backdrop-blur-md border border-white/10 p-6 shadow-2xl rounded-2xl transition-all duration-300 hover:border-[#fcd34d]/30">
-      <h3 className="font-serif text-xl text-[#fcd34d] mb-4 border-b border-white/5 pb-2">Day {day.dayNumber}</h3>
+    <div className="bg-white/5 backdrop-blur-md border border-white/10 p-6 md:p-8 shadow-2xl rounded-2xl">
+      <h3 className="font-serif text-2xl text-[#fcd34d] mb-8 border-b border-white/5 pb-4 flex items-center justify-between">
+        <span>Day {day.dayNumber}</span>
+        <span className="text-sm font-sans text-slate-500 font-normal">
+          {day.totalMinutes} min total
+        </span>
+      </h3>
 
-      <ul className="space-y-4">
-        {day.items?.map((item, idx) => (
-          <li key={idx} className="flex items-start justify-between group">
-            <div className="flex items-start space-x-4">
-              {item.thumbnail && item.type === "visit" && (
-                <div className="relative overflow-hidden rounded-lg w-16 h-16 border border-white/10">
-                  <img
-                    src={item.thumbnail}
-                    alt={item.name}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 opacity-80 group-hover:opacity-100"
-                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                  />
+      <div className="relative space-y-0">
+        {day.items?.map((item, idx) => {
+          const isLast = idx === day.items.length - 1;
+
+          // Render Travel Connector (if strictly a travel item)
+          if (item.type === "travel") {
+            return (
+              <div key={idx} className="relative pl-4 md:pl-24 py-2">
+                {/* Vertical Line */}
+                <div className="absolute left-[27px] md:left-[115px] top-0 bottom-0 w-0.5 border-l-2 border-dashed border-slate-700/50 -ml-px"></div>
+
+                <div className="ml-8 md:ml-12 flex items-center space-x-3 py-3">
+                  <div className="p-1.5 rounded-full bg-slate-800/50 border border-slate-700 text-slate-400">
+                    <Car className="h-3 w-3" />
+                  </div>
+                  <div className="text-xs text-slate-500 font-mono flex items-center space-x-2">
+                    <span>{item.durationMin} min drive</span>
+                    {item.distance && (
+                      <>
+                        <span>•</span>
+                        <span>{item.distance}</span>
+                      </>
+                    )}
+                  </div>
                 </div>
+              </div>
+            );
+          }
+
+          // Render Visit or Break Node
+          return (
+            <div key={idx} className="relative pl-4 md:pl-24 group">
+              {/* Vertical Line (connects to next item) */}
+              {!isLast && (
+                <div className="absolute left-[27px] md:left-[115px] top-6 bottom-0 w-0.5 bg-slate-800 -ml-px group-hover:bg-slate-700 transition-colors"></div>
               )}
-              <div>
-                <div className="mb-1 flex items-center flex-wrap gap-2">
-                  <span className="inline-block px-2 py-0.5 text-[10px] uppercase tracking-wider font-medium rounded-full bg-white/10 text-slate-300 border border-white/5">
-                    {item.type}
-                  </span>
-                  <span className="font-medium text-slate-200 group-hover:text-[#fcd34d] transition-colors">{item.name}</span>
-                </div>
-                {item.description && item.type === "visit" && (
-                  <p className="text-xs text-slate-400 max-w-prose line-clamp-2">
-                    {item.description}
-                  </p>
+
+              {/* Time (Left side on desktop) */}
+              <div className="hidden md:flex absolute left-0 top-6 w-24 justify-end pr-8">
+                <span className="text-sm font-mono text-slate-400">{item.startTime}</span>
+              </div>
+
+              {/* Node Marker */}
+              <div className={`absolute left-[15px] md:left-[103px] top-6 w-6 h-6 rounded-full border-2 z-10 flex items-center justify-center shadow-lg transition-all duration-300 ${item.type === 'break'
+                  ? 'bg-slate-900 border-orange-400 text-orange-400 scale-110'
+                  : 'bg-slate-950 border-[#fcd34d] text-[#fcd34d] group-hover:scale-110 group-hover:shadow-[#fcd34d]/20'
+                }`}>
+                {item.type === 'break' ? (
+                  <Utensils className="h-3 w-3" />
+                ) : (
+                  <div className="w-2 h-2 rounded-full bg-current" />
+                )}
+              </div>
+
+              {/* Content Card */}
+              <div className="ml-8 md:ml-12 pb-8">
+                {item.type === 'break' ? (
+                  // Lunch/Break UI
+                  <div className="bg-orange-500/5 border border-orange-500/10 rounded-xl p-4 flex items-center space-x-4">
+                    <div className="h-12 w-12 rounded-full bg-orange-500/10 flex items-center justify-center flex-shrink-0">
+                      <Utensils className="h-6 w-6 text-orange-400" />
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-medium text-slate-200">{item.name}</h4>
+                      <p className="text-sm text-slate-500">{item.durationMin} min break</p>
+                    </div>
+                  </div>
+                ) : (
+                  // Visit UI
+                  <div className="bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 rounded-xl p-4 transition-all duration-300 group-hover:translate-x-1">
+                    <div className="flex flex-col md:flex-row gap-4">
+                      {/* Thumbnail */}
+                      {item.thumbnail && (
+                        <div className="w-full md:w-32 h-32 rounded-lg overflow-hidden flex-shrink-0 bg-slate-800">
+                          <img
+                            src={item.thumbnail}
+                            alt={item.name}
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                          />
+                        </div>
+                      )}
+
+                      {/* Details */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between mb-2">
+                          <h4 className="text-lg font-bold text-slate-100 truncate pr-4 group-hover:text-[#fcd34d] transition-colors">
+                            {item.name}
+                          </h4>
+                          <span className="md:hidden text-xs font-mono text-slate-500 bg-slate-800 px-2 py-1 rounded">
+                            {item.startTime}
+                          </span>
+                        </div>
+
+                        {item.address && (
+                          <div className="flex items-center space-x-1 text-xs text-slate-500 mb-3">
+                            <MapPin className="h-3 w-3" />
+                            <span className="truncate">{item.address}</span>
+                          </div>
+                        )}
+
+                        {item.description && (
+                          <p className="text-sm text-slate-400 line-clamp-2 leading-relaxed">
+                            {item.description}
+                          </p>
+                        )}
+
+                        <div className="mt-3 flex items-center space-x-4 text-xs text-slate-500 font-mono border-t border-white/5 pt-2">
+                          <div className="flex items-center space-x-1">
+                            <Clock className="h-3 w-3" />
+                            <span>{item.durationMin} min visit</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
-            <div className="text-xs text-slate-500 whitespace-nowrap ml-3 font-mono">
-              {item.startTime} - {item.endTime} <span className="text-slate-600">({item.durationMin} min)</span>
-            </div>
-          </li>
-        ))}
-      </ul>
-
-      <div className="text-right text-xs text-slate-500 mt-4 pt-3 border-t border-white/5 font-mono">
-        Total: <span className="text-[#fcd34d]">{day.totalMinutes}</span> min
+          );
+        })}
       </div>
     </div>
   );
