@@ -356,7 +356,7 @@ const Home = () => {
 
       {/* Footer Simple */}
       <footer className="py-8 text-center text-slate-600 text-sm uppercase tracking-widest border-t border-slate-900">
-        &copy; 2024 Quester. All Rights Reserved.
+        &copy; 2025 Quester. All Rights Reserved.
       </footer>
     </div>
   );
